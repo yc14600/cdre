@@ -8,7 +8,7 @@ import pandas as pd
 import six
 import tensorflow as tf
 from abc import ABC, abstractmethod
-from utils.train_util import config_optimizer, get_next_batch, get_var_list,concat_cond_data,one_hot_encoder
+from utils.train_util import config_optimizer, get_next_batch,concat_cond_data,one_hot_encoder
 from base_models.gans import GAN,fGAN
 from base_models.ratio_fgan import Ratio_fGAN
 from .estimators import KL_Loglinear_Estimator, LogLinear_Estimator,f_Estimator

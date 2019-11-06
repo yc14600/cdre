@@ -8,7 +8,7 @@ import pandas as pd
 import six
 import tensorflow as tf
 from abc import ABC, abstractmethod
-from utils.train_util import config_optimizer, get_next_batch, get_var_list
+from utils.train_util import config_optimizer, get_next_batch, get_vars_by_scope
 from base_models.gans import GAN,fGAN
 from base_models.ratio_fgan import Ratio_fGAN
 
@@ -94,7 +94,7 @@ class LogLinear_Estimator(Estimator):
 
     def config_train(self,learning_rate=0.001,decay=None,opt=None,clip=None,*args,**kargs):
         
-        var_list = get_var_list(self.scope)
+        var_list = get_vars_by_scope(self.scope)
         #self.de_r = tf.clip_by_value(self.de_r,-20.,20.)
         #self.nu_r = tf.clip_by_value(self.nu_r,-20.,20.)
         

@@ -7,7 +7,7 @@ import scipy as sp
 import six
 import tensorflow as tf
 from abc import ABC, abstractmethod
-from utils.train_util import config_optimizer, get_var_list, normal_logpdf
+from utils.train_util import config_optimizer, get_vars_by_scope, normal_logpdf
 from utils.model_util import *
 from .estimators import Estimator, KL_Loglinear_Estimator, Chi_Loglinear_Estimator,f_Estimator
 from base_models.gans import GAN
@@ -115,7 +115,7 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
             rt = self.current_log_ratio()
             estimator.loss -= tf.reduce_mean(normal_logpdf(rt,loc=self.prior_mean,scale=self.prior_std))
 
-        var_list = get_var_list(estimator.scope)
+        var_list = get_vars_by_scope(estimator.scope)
         grads = tf.gradients(estimator.loss, var_list)
         estimator.grads_and_vars = list(zip(grads, var_list))
 

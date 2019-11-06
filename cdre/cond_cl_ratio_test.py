@@ -30,7 +30,7 @@ from base_models.gans import fGAN
 from base_models.classifier import Classifier
 from base_models.vae import VAE, Discriminant_VAE
 from cl_models import Continual_VAE, Continual_DVAE
-from .estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
+from cdre.estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
 from utils.train_util import one_hot_encoder,shuffle_data,shuffle_batches,condition_mean,load_cifar10,gen_class_split_data
 from utils.test_util import *
 from utils.data_util import *
@@ -148,8 +148,8 @@ if args.dataset == 'toy_gaussians':
     de_dists = [de_dist]
         
     #print('check means',nu_means,de_means)
-elif args.dataset in ['MNIST','FASHION']:
-    ori_data_dir = '../datasets/mnist/' if args.dataset== 'MNIST' else '../datasets/fashion-mnist/'
+elif args.dataset in ['mnist','fashion']:
+    ori_data_dir = '../datasets/mnist/' if args.dataset== 'mnist' else '../datasets/fashion-mnist/'
     data = input_data.read_data_sets(ori_data_dir,one_hot=False) 
     
     ori_X = np.vstack((data.train.images,data.validation.images))
@@ -234,6 +234,8 @@ cl_ratio_model.estimator.config_train(learning_rate=args.learning_rate,decay=dec
    
 if args.dim_reduction == 'vae':
     vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2')
+elif args.dim_reduction == 'bvae':
+    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=10,reg='l2',bayes=True)
 elif args.dim_reduction == 'dvae':
     vtrainer = Continual_DVAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],\
                                 epochs=100,lamb=args.dvae_lamb,learning_rate=0.002,reg='l2')
@@ -253,9 +255,9 @@ save_name = 'sample_ratios_t'
 
 
 if args.dataset == 'toy_gaussians':
-    kl = [[],[],[],[],[]]
-else:
     kl = [[],[],[]]
+else:
+    kl = []
 divgergences = pd.DataFrame()
 div_types = ['KL','rv_KL','Jensen_Shannon','Pearson','Hellinger']
 sample_size = args.sample_size#int(args.sample_size/args.T)
@@ -271,8 +273,8 @@ for t in range(args.T):
         samples_c,nu_samples,de_samples,t_samples_c,t_nu_samples,t_de_samples = gen_task_samples(t,sample_size,test_sample_size,args.dpath,args.T,ori_X,ori_Y,ori_test_X,ori_test_Y,model_type=args.model_type)
         nu_dist, de_dist = None, None
         # dimension reduction before ratio estimation
-        if args.dim_reduction in ['vae','dvae']:
-            if args.dim_reduction == 'vae':
+        if args.dim_reduction in ['vae','dvae','bvae']:
+            if args.dim_reduction in ['vae','bvae']:
                 vtrainer.train(nu_samples)
             else:
                 vtrainer.train(nu_samples,de_samples)
@@ -360,24 +362,19 @@ for t in range(args.T):
 
     if args.festimator and args.divergence == 'Pearson':
 
-        estimated_ratio = cl_ratio_model.estimator.ratio(sess,test_samples,test_samples,test_samples_c)
-        #print('check ratio',estimated_ratio[0])
-
         if t > 0 and args.continual_ratio:
             estimated_original_ratio = cl_ratio_model.original_ratio(sess,test_samples,test_samples,test_samples_c)
 
         else:
-            estimated_original_ratio = estimated_ratio
+            estimated_original_ratio = cl_ratio_model.estimator.ratio(sess,test_samples,test_samples,test_samples_c)
 
     else:
-        estimated_ratio = cl_ratio_model.estimator.log_ratio(sess,test_samples,test_samples,test_samples_c)
-        #print('check ratio',estimated_ratio[0])
 
         if t > 0 and args.continual_ratio:
             estimated_original_ratio = cl_ratio_model.original_log_ratio(sess,test_samples,test_samples,test_samples_c)
 
         else:
-            estimated_original_ratio = estimated_ratio
+            estimated_original_ratio = cl_ratio_model.estimator.log_ratio(sess,test_samples,test_samples,test_samples_c)
         
     if args.festimator:
         odiv = args.divergence
@@ -396,40 +393,40 @@ for t in range(args.T):
             sample_ratios['true_ratio'] = true_ratio
             sample_ratios['true_step_ratio'] = true_step_ratio
         
-        print('check ratio nan',np.isnan(estimated_original_ratio).any(),np.isnan(estimated_ratio).any())
+        print('check ratio nan',np.isnan(estimated_original_ratio).any(),np.isnan(estimated_original_ratio).any())
         for div in div_types:
             true_ds = calc_divgenerce(div,[true_ratio,true_step_ratio],test_samples_c)
             logr = False if args.festimator and args.divergence == 'Pearson'else True
-            est_ds = calc_divgenerce(div,[estimated_original_ratio,estimated_ratio],test_samples_c,logr=logr)
+            est_ds = calc_divgenerce(div,[estimated_original_ratio],test_samples_c,logr=logr)
             divgergences['true_original_'+div] = true_ds[0]
             divgergences['true_step_'+div] = true_ds[1]
             divgergences['est_original_'+div] = est_ds[0]
-            divgergences['est_step_'+div] = est_ds[1]
+            #divgergences['est_step_'+div] = est_ds[1]
             if div == odiv: #compatable for earlier code
                 kl[0].append(true_ds[0][:t+1].mean())
                 kl[1].append(est_ds[0][:t+1].mean())
                 kl[2].append(true_ds[1][:t+1].mean())    
-                kl[3].append(est_ds[1][:t+1].mean())        
+                #kl[3].append(est_ds[1][:t+1].mean())        
 
-                print('divs',div, true_ds[0],est_ds[0],true_ds[1],est_ds[1])
-                print('avg divs',kl[0][-1],kl[1][-1],kl[2][-1],kl[3][-1])
+                print('divs',div, true_ds[0],est_ds[0],true_ds[1])
+                print('avg divs',kl[0][-1],kl[1][-1],kl[2][-1])
 
     else:
         for div in div_types:
             logr = False if args.festimator and args.divergence == 'Pearson'else True
-            est_ds = calc_divgenerce(div,[estimated_original_ratio,estimated_ratio],test_samples_c,logr=logr)
+            est_ds = calc_divgenerce(div,[estimated_original_ratio],test_samples_c,logr=logr)
             divgergences['est_original_'+div] = est_ds[0]
-            divgergences['est_step_'+div] = est_ds[1]
+            #divgergences['est_step_'+div] = est_ds[1]
             if div == odiv:
-                kl[0].append(est_ds[0][:t+1].mean())        
-                kl[1].append(est_ds[1][:t+1].mean())
-                print('divs',div, est_ds[0],est_ds[1])
-                print('avg divs',kl[0][-1],kl[1][-1])
+                kl.append(est_ds[0][:t+1].mean())        
+                #kl[1].append(est_ds[1][:t+1].mean())
+                print('divs',div, est_ds[0])
+                print('avg divs',kl[-1])
     
     divgergences.to_csv(sub_dir+'divs_t'+str(t+1)+'.csv',index=False)
 
     if args.save_ratios:
-        sample_ratios['estimated_ratio'] = estimated_ratio.sum(axis=1)
+        #sample_ratios['estimated_ratio'] = estimated_ratio.sum(axis=1)
         sample_ratios['estimated_original_ratio'] = estimated_original_ratio.sum(axis=1)
         sample_ratios['sample_c'] = np.argmax(test_samples_c,axis=1)
         #print('check c',test_samples_c[:3],sample_ratios.sample_c[:3])
@@ -440,20 +437,23 @@ for t in range(args.T):
         c_nu_samples, c_de_samples = cl_ratio_model.estimator.concat_condition(nu_samples[:batch_size],de_samples[:batch_size],samples_c[:batch_size])
         contr = sess.run(contr,feed_dict={cl_ratio_model.estimator.nu_ph:c_nu_samples,\
                                             cl_ratio_model.estimator.de_ph:c_de_samples,\
-                                            cl_ratio_model.estimator.c_ph:samples_c[:batch_size]})
+                                            cl_ratio_model.estimator.c_ph:samples_c[:batch_size],\
+                                            cl_ratio_model.prev_nu_ph:c_nu_samples,\
+                                            cl_ratio_model.prev_de_ph:c_de_samples})
+                                            
     else: 
         contr = 1.
-    kl[-1].append(contr)
+    #kl[-1].append(contr)
     print('constrain check',contr)
 
     # visualizations
     if args.vis:
         plt.plot(test_samples[:,0],true_ratio,'.')
         plt.plot(test_samples[:,0],estimated_original_ratio,'.')
-        plt.plot(test_samples[:,0],estimated_ratio,'.')
+        #plt.plot(test_samples[:,0],estimated_ratio,'.')
 
         plt.xlabel('the first dimension of x',fontsize=15)
-        lgd = plt.legend([r'$\log r^*_t$',r'$\log r_t$',r'$\log r_{\theta_t}$'],fontsize=15,bbox_to_anchor=(0.9, 1.2),
+        lgd = plt.legend([r'$\log r^*_t$',r'$\log r_t$'],fontsize=15,bbox_to_anchor=(0.9, 1.2),
             ncol=3)
         plt.savefig(sub_dir+dist+'_cl_ratio_vis_d'+str(args.d_dim)+'_task'+str(t+1)+'.pdf',bbox_extra_artists=([lgd]), bbox_inches='tight')
         plt.close()
@@ -489,7 +489,7 @@ for t in range(args.T):
 
 
 kl = np.array(kl)
-np.savetxt(sub_dir+'divergence_compare.csv', kl, delimiter=',')
+np.savetxt(sub_dir+'kl.csv', kl, delimiter=',')
 
 
 
