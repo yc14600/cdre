@@ -262,7 +262,7 @@ divgergences = pd.DataFrame()
 div_types = ['KL','rv_KL','Jensen_Shannon','Pearson','Hellinger']
 sample_size = args.sample_size#int(args.sample_size/args.T)
 test_sample_size = args.test_sample_size#int(args.test_sample_size/args.T)
-#tf.global_variables_initializer().run()
+tf.global_variables_initializer().run()
 prev_nu_samples,prev_de_samples,t_prev_nu_samples,t_prev_de_samples = None, None, None, None
 for t in range(args.T):
     sample_ratios = pd.DataFrame()
