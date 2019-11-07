@@ -275,7 +275,7 @@ for t in range(args.T):
         # dimension reduction before ratio estimation
         if args.dim_reduction in ['vae','dvae','bvae']:
             if args.dim_reduction in ['vae','bvae']:
-                vtrainer.train(nu_samples)
+                vtrainer.train(nu_samples,standalone=False)
             else:
                 vtrainer.train(nu_samples,de_samples)
             if t>0:
