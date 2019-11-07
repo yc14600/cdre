@@ -233,9 +233,9 @@ cl_ratio_model.estimator.config_train(learning_rate=args.learning_rate,decay=dec
 
    
 if args.dim_reduction == 'vae':
-    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2')
+    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2',sess=sess)
 elif args.dim_reduction == 'bvae':
-    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2',bayes=True)
+    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2',sess=sess,bayes=True)
 elif args.dim_reduction == 'dvae':
     vtrainer = Continual_DVAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],\
                                 epochs=100,lamb=args.dvae_lamb,learning_rate=0.002,reg='l2')
