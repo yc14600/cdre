@@ -234,9 +234,9 @@ cl_ratio_model.estimator.config_train(learning_rate=args.learning_rate,decay=dec
 
    
 if args.dim_reduction == 'vae':
-    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2',sess=sess)
+    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2',sess=sess,prior_std=0.1)
 elif args.dim_reduction == 'bvae':
-    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2',sess=sess,bayes=True)
+    vtrainer = Continual_VAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],epochs=100,reg='l2',sess=sess,prior_std=0.1,bayes=True)
 elif args.dim_reduction == 'dvae':
     vtrainer = Continual_DVAE(args.d_dim,args.z_dim,batch_size=200,e_net_shape=[512,512],d_net_shape=[256,256],\
                                 epochs=100,lamb=args.dvae_lamb,learning_rate=0.002,reg='l2')
@@ -276,7 +276,7 @@ for t in range(args.T):
         # dimension reduction before ratio estimation
         if args.dim_reduction in ['vae','dvae','bvae']:
             if args.dim_reduction in ['vae','bvae']:
-                vtrainer.train(nu_samples,standalone=False)
+                vtrainer.train(nu_samples)
             else:
                 vtrainer.train(nu_samples,de_samples)
             if t>0:
