@@ -23,8 +23,8 @@ class Continual_Estimator(ABC):
         self.estimator = self.build_estimator(net_shape,nu_ph,de_ph,coef,conv,batch_norm,ac_fn,\
                                     reg,batch_train,div_type,lambda_reg,bayes,local_constr,*args,**kargs)
         self.div_type = div_type
-        self.prev_nu_ph = prev_nu_ph if prev_nu_ph is not None else nu_ph
-        self.prev_de_ph = prev_de_ph if prev_de_ph is not None else de_ph
+        self.prev_nu_ph = prev_nu_ph if prev_nu_ph is None else nu_ph
+        self.prev_de_ph = prev_de_ph if prev_de_ph is None else de_ph
 
         self.cl_constr = cl_constr
         self.lambda_constr = lambda_constr
