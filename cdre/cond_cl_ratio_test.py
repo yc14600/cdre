@@ -50,7 +50,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-d_dim', default=2, type=int, help='data dimension')
 parser.add_argument('-T', default=10, type=int, help='number of tasks')
 parser.add_argument('-dataset', default='toy_gaussians', type=str, help='type of test dataset')
-parser.add_argument('-dpath', default='./', type=str, help='data path when dataset is not toy_gaussians')
+parser.add_argument('-dpath', default='./', type=str, help='path of model samples when dataset is not toy_gaussians')
+parser.add_argument('-rdpath', default='/home/yu/gits/data/', type=str, help='path of real data samples when dataset is not toy_gaussians')
 parser.add_argument('-delta_par', default=0.01, type=float, help='delta value for changing distribution parameters, \
                                 if 0, it is randomly drawn from a uniform distribution U(0.005,0.025) at each step.')
 parser.add_argument('-scale_shrink', default='True', type=str2bool, help='if True, decrease standard deviation at each step, \
@@ -149,7 +150,7 @@ if args.dataset == 'toy_gaussians':
         
     #print('check means',nu_means,de_means)
 elif args.dataset in ['mnist','fashion']:
-    ori_data_dir = '../datasets/mnist/' if args.dataset== 'mnist' else '../datasets/fashion-mnist/'
+    ori_data_dir = os.path.join(args.rdpath,args.dataset) #if args.dataset== 'mnist' else '../datasets/fashion-mnist/'
     data = input_data.read_data_sets(ori_data_dir,one_hot=False) 
     
     ori_X = np.vstack((data.train.images,data.validation.images))
