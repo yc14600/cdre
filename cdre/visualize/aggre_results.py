@@ -12,7 +12,7 @@ import os
 path = os.getcwd()
 import sys
 sys.path.append(path+'/../../')
-import prd.prd_score as prd
+#import prd.prd_score as prd
 
 import matplotlib as mtp
 mtp.rcParams['pdf.fonttype'] = 42

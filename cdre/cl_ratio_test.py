@@ -18,17 +18,16 @@ import argparse
 
 import time
 import os
-path = os.getcwd()
 import sys
-sys.path.append(path+'/../')
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 # In[4]:
 
 
-from estimators import LogLinear_Estimator
-from cl_estimators import Continual_LogLinear_Estimator,Continual_f_Estimator
-from utils.model_util import define_dense_layer
+from estimators import LogLinear_Estimator,Continual_LogLinear_Estimator,Continual_f_Estimator
+from utils.model_util import define_dense_layer,LinearRegression
 from utils.test_util import *
 from base_models.mixture_models import MixDiagGaussian
 
@@ -53,11 +52,11 @@ class generator(object):
 # In[7]:
 parser = argparse.ArgumentParser()
 parser.add_argument('-d_dim', default=2, type=int, help='data dimension')
+parser.add_argument('-task_type', default='div', type=str, help='task type, div or regression')
 parser.add_argument('-T', default=10, type=int, help='number of tasks')
-parser.add_argument('-delta_par', default=0.01, type=float, help='delta value for changing distribution parameters, \
+parser.add_argument('-delta_mean', default=0.01, type=float, help='delta value for changing distribution parameters, \
                                 if 0, it is randomly drawn from a uniform distribution U(0.005,0.025) at each step.')
-parser.add_argument('-scale_shrink', default='True', type=str2bool, help='if True, decrease standard deviation at each step, \
-                                                                    if False, increase it, by the value of delta_par.')
+parser.add_argument('-delta_std', default=0., type=float, help='delta value for changing standard deviation')
 parser.add_argument('-delta_list', default=[], type=str2flist, help='the list of delta parameter for each task')
 parser.add_argument('-sample_size', default=50000, type=int, help='number of samples')
 parser.add_argument('-test_sample_size', default=10000, type=int, help='number of test samples')
@@ -74,7 +73,7 @@ parser.add_argument('-lambda_constr', default=1., type=float, help='Lagrange mul
 parser.add_argument('-warm_start', default='', type=str, help='specify the file path to load a trained model for task 0')
 parser.add_argument('-result_path', default='./results/', type=str, help='specify the path for saving results')
 parser.add_argument('-seed', default=0, type=int, help='random seed')
-parser.add_argument('-divergence', default='KL', type=str, help='the divergence used to optimize the ratio model, one of [KL, Chi]')
+parser.add_argument('-divergence', default='KL', type=str, help='the divergence used to optimize the ratio model, one of [KL, rv_KL, Pearson, Hellinger, Jensen_Shannon]')
 parser.add_argument('-unlimit_samples', default=False, type=str2bool, help='unlimited number of samples')
 parser.add_argument('-vis', default=False, type=str2bool, help='enable visualization')
 parser.add_argument('-save_model',default=False, type=str2bool, help='if True, save task0 model')
@@ -100,9 +99,8 @@ if args.vis:
 
 tf.set_random_seed(args.seed)
 np.random.seed(args.seed)
-
-dist = 'Normal'
 decay = None #(1000,0.1)
+
 
 if args.result_path[-1] != '/':
     path = args.result_path+'/'
@@ -125,12 +123,15 @@ if not args.continual_ratio:
 
 # In[8]:
 
+# dist = 'Normal'
 if args.num_components == 1:
-    delta_par = args.delta_par if args.delta_par != 0. else args.delta_list[0]#np.random.uniform(-0.5,0.5)
+    delta_mean = args.delta_mean if args.delta_mean != 0. else args.delta_list[0]#np.random.uniform(-0.5,0.5)
     ori_nu_mean, ori_nu_std = 0., 1.
-    de_mean = ori_nu_mean + delta_par 
-    de_std = ori_nu_std - delta_par if args.scale_shrink else ori_nu_std + delta_par
+    de_mean = ori_nu_mean + delta_mean 
+    de_std = ori_nu_std + args.delta_std 
     nu_mean, nu_std = ori_nu_mean, ori_nu_std
+
+    nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std)
 
 else:
     # mixture Gaussian
@@ -145,39 +146,32 @@ else:
     else:
         nu_pi = [1./len(nu_mean)]*len(nu_mean)
         de_pi = [1./len(de_mean)]*len(de_mean)
-    
-    
+
     print('check mean',ori_nu_mean,de_mean)
     print('check pi',nu_pi,de_pi)
 
-
-# In[14]:
-
-if args.num_components > 1:
     nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
-else:
-    nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std)
+             
+
+if args.task_type == 'regression':  
+    def true_f(x):
+        return 1.2*np.power(x,3)-2.4*np.power(x,2)+3.6*x
+
+d_dim = args.d_dim
 ori_nu_dist = nu_dist
 
 
-# In[15]:
+nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='nu_ph')
+de_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='de_ph')
 
-
-nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.d_dim],name='nu_ph')
-de_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.d_dim],name='de_ph')
-
-prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.d_dim],name='prev_nu_ph')
-prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.d_dim],name='prev_de_ph')
-
-
-# In[16]:
+prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='prev_nu_ph')
+prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='prev_de_ph')
 
 
 sess = ed.get_session()
 
-# In[18]:
 
-net_shape = [args.d_dim] + args.hidden_layers + [1]
+net_shape = [d_dim] + args.hidden_layers + [1]
 if args.festimator: 
     cl_ratio_model = Continual_f_Estimator(net_shape=net_shape,nu_ph=nu_ph,de_ph=de_ph,prev_nu_ph=prev_nu_ph,\
                                                prev_de_ph=prev_de_ph,reg=args.reg,cl_constr=args.constr,\
@@ -190,23 +184,11 @@ else:
                                                 lambda_constr=args.lambda_constr,bayes=args.bayes,local_constr=args.local_constr)
 
 
-
-# In[19]:
-
-
 cl_ratio_model.estimator.config_train(learning_rate=args.learning_rate,decay=decay)
-
-
-# In[20]:
-
 
 saver = tf.train.Saver()
 
-# In[28]:
-
 save_name = 'sample_ratios_t'
-
-
 
 kl = [[],[],[],[],[],[],[],[],[]]
 sample_ratios = pd.DataFrame()
@@ -222,8 +204,11 @@ for t in range(args.T):
     else:
         nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist,de_sample_size=50000)
     
+        
+    print('check sample',nu_samples.shape)
     if args.validation:
         t_nu_samples,t_de_samples = get_samples(args.test_sample_size,nu_dist,de_dist)
+
     else:
         t_nu_samples,t_de_samples = None, None    
     
@@ -242,56 +227,109 @@ for t in range(args.T):
         else:
             losses,tlosses,terrs = cl_ratio_model.estimator.learning(sess,nu_samples,de_samples,t_nu_samples,t_de_samples,\
                                                                 batch_size=args.batch_size,epoch=args.epoch,print_e=args.print_e,\
-                                                                nu_dist=nu_dist,de_dist=de_dist,early_stop=args.early_stop)
+                                                                nu_dist=None,de_dist=None,early_stop=args.early_stop)
     if args.save_model:
         saver.save(sess,sub_dir+'model_task'+str(t))
 
 
     # save results
-    test_samples = t_de_samples if args.validation else de_samples
+    test_samples = de_samples
     estimated_ratio = cl_ratio_model.estimator.log_ratio(sess,test_samples,test_samples).reshape(-1)
     if t > 0 and args.continual_ratio:
         estimated_original_ratio = cl_ratio_model.original_log_ratio(sess,test_samples,test_samples).reshape(-1)
     else:
         estimated_original_ratio = estimated_ratio
-    true_ratio = -de_dist.log_prob(test_samples) + ori_nu_dist.log_prob(test_samples)
-    true_step_ratio = -de_dist.log_prob(test_samples) + nu_dist.log_prob(test_samples)
-    sample_ratios['estimated_ratio'] = estimated_ratio
-    sample_ratios['estimated_original_ratio'] = estimated_original_ratio
-    sample_ratios['true_ratio'] = true_ratio
-    sample_ratios['true_step_ratio'] = true_step_ratio
+    
+    sample_ratios['estimated_log_ratio'] = estimated_ratio
+    sample_ratios['estimated_original_log_ratio'] = estimated_original_ratio
+    
+    if args.task_type == 'div':
+        true_ratio = -de_dist.log_prob(test_samples) + ori_nu_dist.log_prob(test_samples)
+        true_step_ratio = -de_dist.log_prob(test_samples) + nu_dist.log_prob(test_samples)
+        sample_ratios['true_log_ratio'] = true_ratio
+        sample_ratios['true_step_log_ratio'] = true_step_ratio
+
+        true_kl = np.mean(-true_ratio)
+        kl[0].append(true_kl)
+        est_kl = np.mean(- estimated_original_ratio)
+        kl[1].append(est_kl)
+        true_step_kl = np.mean(- true_step_ratio)
+        kl[2].append(true_step_kl)
+        step_kl = np.mean(- estimated_ratio)
+        kl[3].append(step_kl)
+        print('kls', true_kl,est_kl,true_step_kl,step_kl)
+        if t > 0 and args.continual_ratio:
+            contr = cl_ratio_model.get_cl_constr()
+            contr = sess.run(contr,feed_dict={cl_ratio_model.estimator.nu_ph:nu_samples,cl_ratio_model.estimator.de_ph:de_samples})
+        else: 
+            contr = 1.
+        kl[4].append(contr)
+        print('constrain check',contr)
+
+        true_tv = 0.5*np.mean(np.abs(np.exp(true_ratio)-1.))
+        est_tv = 0.5*np.mean(np.abs(np.exp(estimated_original_ratio)-1.))
+        kl[5].append(true_tv)
+        kl[6].append(est_tv) 
+        print('true TV',true_tv,'estimated TV',est_tv)
+        
+        true_chi = np.mean(np.square(np.exp(true_ratio)-1.))
+        est_chi = np.mean(np.square(np.exp(estimated_original_ratio)-1.))
+        kl[7].append(true_chi)
+        kl[8].append(est_chi) 
+        print('true chi',true_chi,'estimated chi',est_chi)
+
+
+    elif args.task_type == 'regression':
+        if t == 0:
+            nu_y = true_f(nu_samples)
+            nu_y += 1.5*(0.5 - np.random.uniform(size=nu_y.shape))  # add noise
+            ori_nu_samples = nu_samples
+            #print('y shape',nu_y.shape)
+            #x_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.d_dim],name='x_ph')
+            y_ph = tf.placeholder(dtype=tf.float32,shape=[None,1],name='y_ph')
+            w_ph = tf.placeholder(dtype=tf.float32,shape=[None,1],name='w_ph')
+            rg_model = LinearRegression(x_ph=nu_ph,y_ph=y_ph,in_dim=args.d_dim,out_dim=1,Bayes=False,logistic=False,w_ph=w_ph)
+            rg_model.config_train_opt(learning_rate=0.001)
+            rg_model2 = LinearRegression(x_ph=nu_ph,y_ph=y_ph,in_dim=args.d_dim,out_dim=1,Bayes=False,logistic=False,w_ph=1.)
+            rg_model2.config_train_opt(learning_rate=0.001)
+
+        elif t == args.T-1:
+            de_y = true_f(de_samples)
+            de_y += 1.5*(0.5 - np.random.uniform(size=de_y.shape))
+            ratio = np.exp(estimated_original_ratio).reshape(-1,1)
+            print('check ratio',np.max(ratio),np.min(ratio))
+            rg_model.fit(num_iter=20000,x_train=de_samples,y_train=de_y,batch_size=200,sess=sess,weights=ratio,print_iter=1000)
+            rg_model2.fit(num_iter=20000,x_train=de_samples,y_train=de_y,batch_size=200,sess=sess,weights=None,print_iter=1000)
+            
+            #### plot ####
+            X_plot = np.linspace(0, 3, 1000)[:, None]
+            stime = time.time()
+            py = sess.run(rg_model.y,feed_dict={rg_model.x_ph:X_plot})
+            py2 = sess.run(rg_model2.y,feed_dict={rg_model2.x_ph:X_plot})
+            sns.set_style('darkgrid')
+            lw = 2
+            plt.scatter(ori_nu_samples[:100], nu_y[:100],marker='>', label=r'$D_1$')
+            plt.scatter(de_samples[:100], de_y[:100],marker='*', label=r'$D_t$')
+            plt.plot(X_plot, py, color='turquoise', lw=lw,
+                    label=r'$LR+IS:D_t$')
+            plt.plot(X_plot, py2, color='red', lw=lw,
+                    label=r'$LR:D_t$')
+            plt.legend(loc="best",  scatterpoints=1,fontsize=12)
+            plt.ylim(-2, 15)
+            #plt.title('Linear regression examples')
+            plt.xlabel('x')
+            plt.ylabel('y')
+            plt.savefig(sub_dir+'cv_shift_regression.pdf')
+            #W,B = sess.run([rg_model.W,rg_model.B])
+            #print('estimated weights',W,B)
+            #print('true weights',weights,bias)
+            #pred_y = (np.matmul(de_samples, W) + B)*ratio
+
+            #print('estimated y mean', np.mean(pred_y), 'true y mean', np.mean(nu_y), 'current y mean', np.mean(de_y))
+            #print('estimated y std', np.std(pred_y), 'true y std', np.std(nu_y), 'current y std', np.std(de_y))
+            #print('estimated y skewness', np.mean(np.power((pred_y-np.mean(pred_y))/np.std(pred_y),3)), 'true y skewness', np.mean(np.power((nu_y-np.mean(nu_y))/np.std(nu_y),3)))
+
     sample_ratios.to_csv(sub_dir+save_name+'_t'+str(t+1)+'.csv',index=False)
-    
-    
-    true_kl = np.mean(-true_ratio)
-    kl[0].append(true_kl)
-    est_kl = np.mean(- estimated_original_ratio)
-    kl[1].append(est_kl)
-    true_step_kl = np.mean(- true_step_ratio)
-    kl[2].append(true_step_kl)
-    step_kl = np.mean(- estimated_ratio)
-    kl[3].append(step_kl)
-    print('kls', true_kl,est_kl,true_step_kl,step_kl)
-    if t > 0 and args.continual_ratio:
-        contr = cl_ratio_model.get_cl_constr()
-        contr = sess.run(contr,feed_dict={cl_ratio_model.estimator.nu_ph:nu_samples,cl_ratio_model.estimator.de_ph:de_samples})
-    else: 
-        contr = 1.
-    kl[4].append(contr)
-    print('constrain check',contr)
-   
-    true_tv = 0.5*np.mean(np.abs(np.exp(true_ratio)-1.))
-    est_tv = 0.5*np.mean(np.abs(np.exp(estimated_original_ratio)-1.))
-    kl[5].append(true_tv)
-    kl[6].append(est_tv) 
-    print('true TV',true_tv,'estimated TV',est_tv)
-    
-    true_chi = np.mean(np.square(np.exp(true_ratio)-1.))
-    est_chi = np.mean(np.square(np.exp(estimated_original_ratio)-1.))
-    kl[7].append(true_chi)
-    kl[8].append(est_chi) 
-    print('true chi',true_chi,'estimated chi',est_chi)
-    
     # visualizations
     if args.vis:
         plt.plot(test_samples[:,0],true_ratio,'.')
@@ -301,7 +339,7 @@ for t in range(args.T):
         plt.xlabel('the first dimension of x',fontsize=15)
         lgd = plt.legend([r'$\log r^*_t$',r'$\log r_t$',r'$\log r_{\theta_t}$'],fontsize=15,bbox_to_anchor=(0.9, 1.2),
             ncol=3)
-        plt.savefig(sub_dir+dist+'_cl_ratio_vis_d'+str(args.d_dim)+'_task'+str(t+1)+'.pdf',bbox_extra_artists=([lgd]), bbox_inches='tight')
+        plt.savefig(sub_dir+args.task_type+'_cl_ratio_vis_d'+str(args.d_dim)+'_task'+str(t+1)+'.pdf',bbox_extra_artists=([lgd]), bbox_inches='tight')
         plt.close()
 
         if len(args.warm_start) == 0 or t > 0:
@@ -319,6 +357,7 @@ for t in range(args.T):
         if args.continual_ratio:
             nu_mean, nu_std = de_mean, de_std
 
+
         if args.num_components > 1:
             if args.continual_ratio:
                 nu_pi = de_pi
@@ -330,17 +369,17 @@ for t in range(args.T):
             #print('de mean',de_mean,'de std',de_std)
             nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
         else:
-            if args.delta_par == 0. :
-                delta_par =  args.delta_list[t+1] #np.random.uniform(-0.5,0.5)
+            if args.delta_mean == 0. :
+                delta_mean =  args.delta_list[t+1] #np.random.uniform(-0.5,0.5)
 
-            print('delta par',delta_par)
-            
-            de_mean += delta_par
-            de_std = de_std - delta_par if args.scale_shrink else de_std + delta_par
+            print('delta par',args.delta_mean)
+                        
+            de_mean += delta_mean
+            de_std += args.delta_std 
             print(nu_mean,nu_std,de_mean,de_std,ori_nu_mean,ori_nu_std)
-            
             nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std)
             
+                
 
         # update model loss 
         if args.continual_ratio:       
@@ -356,10 +395,10 @@ np.savetxt(sub_dir+'divergence_compare.csv', kl, delimiter=',')
 
 # In[45]:
 if args.vis:
-    plt.plot(range(1,args.T),kl[0])
-    plt.plot(range(1,args.T),kl[1])
-    plt.plot(range(1,args.T),kl[2])
-    plt.plot(range(1,args.T),kl[3])
+    plt.plot(range(1,args.T+1),kl[0])
+    plt.plot(range(1,args.T+1),kl[1])
+    plt.plot(range(1,args.T+1),kl[2])
+    plt.plot(range(1,args.T+1),kl[3])
     plt.xlabel('t (index of tasks)',fontsize=14)
     #lgd=plt.legend([r'$D_{KL}(P(x)||P_{\theta_t}(x))$',r'$\widehat{D}_{KL}(P(x)||P_{\theta_t}(x))$',\
     #                r'$D_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$',r'$\widehat{D}_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$'],fontsize=14)#,bbox_to_anchor=(1., 1.)
