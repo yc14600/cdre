@@ -193,11 +193,11 @@ if not args.conv:
     de_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='de_ph')
     c_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.T],name='c_ph')
 
-    if args.dataset == 'toy_gaussians' or not args.dim_reduction:
-        prev_nu_ph, prev_de_ph = None, None
-    else:
-        prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='prev_nu_ph')
-        prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='prev_de_ph')
+    #if args.dataset == 'toy_gaussians' or not args.dim_reduction:
+    #    prev_nu_ph, prev_de_ph = None, None
+    #else:
+    prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='prev_nu_ph')
+    prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='prev_de_ph')
 
     if args.multihead:
         net_shape = [x_dim+args.T] + args.hidden_layers + [args.T]
@@ -208,7 +208,7 @@ if not args.conv:
 # In[16]:
 
 
-sess = ed.get_session()
+sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
 # In[18]:
 
@@ -263,7 +263,7 @@ divgergences = pd.DataFrame()
 div_types = ['KL','rv_KL','Jensen_Shannon','Pearson','Hellinger']
 sample_size = args.sample_size#int(args.sample_size/args.T)
 test_sample_size = args.test_sample_size#int(args.test_sample_size/args.T)
-tf.global_variables_initializer().run()
+tf.global_variables_initializer().run(session=sess)
 prev_nu_samples,prev_de_samples,t_prev_nu_samples,t_prev_de_samples = None, None, None, None
 for t in range(args.T):
     sample_ratios = pd.DataFrame()
@@ -330,7 +330,7 @@ for t in range(args.T):
             clss.save_params()
 
             
-    tf.global_variables_initializer().run()
+    tf.global_variables_initializer().run(session=sess)
     batch_size = args.batch_size 
     print('check shape',samples_c.shape,nu_samples.shape,de_samples.shape,t_de_samples.shape,t_nu_samples.shape)
 

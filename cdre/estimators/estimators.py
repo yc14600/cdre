@@ -130,8 +130,8 @@ class LogLinear_Estimator(Estimator):
 
     def learning(self,sess,nu_samples,de_samples,test_nu_samples=None,test_de_samples=None,\
                     batch_size=64,epoch=50,print_e=1,nu_dist=None,de_dist=None,early_stop=False,\
-                    tol=0.,update_feed_dict=None,min_epoch=50,*args,**kargs):
-        min_loss = -10.
+                    tol=0.,update_feed_dict=None,min_epoch=10,*args,**kargs):
+        min_loss = -20.
         if update_feed_dict is None:
             update_feed_dict = self.update_feed_dict
         

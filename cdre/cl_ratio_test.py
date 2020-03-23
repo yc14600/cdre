@@ -51,40 +51,41 @@ class generator(object):
 
 # In[7]:
 parser = argparse.ArgumentParser()
-parser.add_argument('-d_dim', default=2, type=int, help='data dimension')
-parser.add_argument('-task_type', default='div', type=str, help='task type, div or regression')
-parser.add_argument('-T', default=10, type=int, help='number of tasks')
-parser.add_argument('-delta_mean', default=0.01, type=float, help='delta value for changing distribution parameters, \
+parser.add_argument('--d_dim', default=2, type=int, help='data dimension')
+parser.add_argument('--task_type', default='div', type=str, help='task type, div or regression')
+parser.add_argument('--T', default=10, type=int, help='number of tasks')
+parser.add_argument('--delta_mean', default=0.01, type=float, help='delta value for changing distribution parameters, \
                                 if 0, it is randomly drawn from a uniform distribution U(0.005,0.025) at each step.')
-parser.add_argument('-delta_std', default=0., type=float, help='delta value for changing standard deviation')
-parser.add_argument('-delta_list', default=[], type=str2flist, help='the list of delta parameter for each task')
-parser.add_argument('-sample_size', default=50000, type=int, help='number of samples')
-parser.add_argument('-test_sample_size', default=10000, type=int, help='number of test samples')
-parser.add_argument('-batch_size', default=2000, type=int, help='batch size')
-parser.add_argument('-epoch', default=10000, type=int, help='number of epochs')
-parser.add_argument('-print_e', default=100, type=int, help='number of epochs for printing message')
-parser.add_argument('-learning_rate', default=0.00002, type=float, help='learning rate')
-parser.add_argument('-reg', default=None, type=str, help='type of regularizer,can be l2 or l1')
-parser.add_argument('-lambda_reg', default=1., type=float, help='Lagrange multiplier of regularity loss')
-parser.add_argument('-early_stop', default=True, type=str2bool, help='if early stop when loss increases')
-parser.add_argument('-validation', default=True, type=str2bool, help='if use validation set for early stop')
-parser.add_argument('-constr', default=True, type=str2bool, help='if add continual constraints to the objective')
-parser.add_argument('-lambda_constr', default=1., type=float, help='Lagrange multiplier of continual constraint')
-parser.add_argument('-warm_start', default='', type=str, help='specify the file path to load a trained model for task 0')
-parser.add_argument('-result_path', default='./results/', type=str, help='specify the path for saving results')
-parser.add_argument('-seed', default=0, type=int, help='random seed')
-parser.add_argument('-divergence', default='KL', type=str, help='the divergence used to optimize the ratio model, one of [KL, rv_KL, Pearson, Hellinger, Jensen_Shannon]')
-parser.add_argument('-unlimit_samples', default=False, type=str2bool, help='unlimited number of samples')
-parser.add_argument('-vis', default=False, type=str2bool, help='enable visualization')
-parser.add_argument('-save_model',default=False, type=str2bool, help='if True, save task0 model')
-parser.add_argument('-hidden_layers', default=[256,256], type=str2ilist, help='size of hidden layers, no space between characters')
-parser.add_argument('-bayes', default=False, type=str2bool, help='enable Bayesian prior')
-parser.add_argument('-local_constr', default=0., type=float, help='enable local estimator\'s constraint')
-parser.add_argument('-num_components', default=1, type=int, help='generate samples from mixture Gaussian distributions if larger than 1,\
+parser.add_argument('--delta_std', default=0., type=float, help='delta value for changing standard deviation')
+parser.add_argument('--delta_list', default=[], type=str2flist, help='the list of delta parameter for each task')
+parser.add_argument('--sample_size', default=50000, type=int, help='number of samples')
+parser.add_argument('--test_sample_size', default=10000, type=int, help='number of test samples')
+parser.add_argument('--batch_size', default=2000, type=int, help='batch size')
+parser.add_argument('--epoch', default=10000, type=int, help='number of epochs')
+parser.add_argument('--print_e', default=100, type=int, help='number of epochs for printing message')
+parser.add_argument('--learning_rate', default=0.00002, type=float, help='learning rate')
+parser.add_argument('--reg', default=None, type=str, help='type of regularizer,can be l2 or l1')
+parser.add_argument('--lambda_reg', default=1., type=float, help='Lagrange multiplier of regularity loss')
+parser.add_argument('--early_stop', default=True, type=str2bool, help='if early stop when loss increases')
+parser.add_argument('--validation', default=True, type=str2bool, help='if use validation set for early stop')
+parser.add_argument('--constr', default=True, type=str2bool, help='if add continual constraints to the objective')
+parser.add_argument('--lambda_constr', default=1., type=float, help='Lagrange multiplier of continual constraint')
+parser.add_argument('--increase_constr', default=False, type=bool, help='increase Lagrange multiplier of continual constraint when number of tasks increase')
+parser.add_argument('--warm_start', default='', type=str, help='specify the file path to load a trained model for task 0')
+parser.add_argument('--result_path', default='./results/', type=str, help='specify the path for saving results')
+parser.add_argument('--seed', default=0, type=int, help='random seed')
+parser.add_argument('--divergence', default='KL', type=str, help='the divergence used to optimize the ratio model, one of [KL, rv_KL, Pearson, Hellinger, Jensen_Shannon]')
+parser.add_argument('--unlimit_samples', default=False, type=str2bool, help='unlimited number of samples')
+parser.add_argument('--vis', default=False, type=str2bool, help='enable visualization')
+parser.add_argument('--save_model',default=False, type=str2bool, help='if True, save task0 model')
+parser.add_argument('--hidden_layers', default=[256,256], type=str2ilist, help='size of hidden layers, no space between characters')
+parser.add_argument('--bayes', default=False, type=str2bool, help='enable Bayesian prior')
+parser.add_argument('--local_constr', default=0., type=float, help='enable local estimator\'s constraint')
+parser.add_argument('--num_components', default=1, type=int, help='generate samples from mixture Gaussian distributions if larger than 1,\
                                                                     each step removes one mode')
-parser.add_argument('-component_weights',default=[],type=str2flist,help='component weights of mixture Gaussian')
-parser.add_argument('-continual_ratio', default=True, type=str2bool, help='if False, estimate ratio by original data')
-parser.add_argument('-festimator', default=False, type=str2bool, help='use f-estimator')
+parser.add_argument('--component_weights',default=[],type=str2flist,help='component weights of mixture Gaussian')
+parser.add_argument('--continual_ratio', default=True, type=str2bool, help='if False, estimate ratio by original data')
+parser.add_argument('--festimator', default=False, type=str2bool, help='use f-estimator')
 
 args = parser.parse_args()
 
@@ -126,7 +127,7 @@ if not args.continual_ratio:
 # dist = 'Normal'
 if args.num_components == 1:
     delta_mean = args.delta_mean if args.delta_mean != 0. else args.delta_list[0]#np.random.uniform(-0.5,0.5)
-    ori_nu_mean, ori_nu_std = 0., 1.
+    ori_nu_mean, ori_nu_std = 1., .5
     de_mean = ori_nu_mean + delta_mean 
     de_std = ori_nu_std + args.delta_std 
     nu_mean, nu_std = ori_nu_mean, ori_nu_std
@@ -154,6 +155,7 @@ else:
              
 
 if args.task_type == 'regression':  
+    print('define regression true func')
     def true_f(x):
         return 1.2*np.power(x,3)-2.4*np.power(x,2)+3.6*x
 
@@ -168,10 +170,11 @@ prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='prev_nu_ph
 prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='prev_de_ph')
 
 
-sess = ed.get_session()
-
+#sess = ed.get_session()
+sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
 net_shape = [d_dim] + args.hidden_layers + [1]
+
 if args.festimator: 
     cl_ratio_model = Continual_f_Estimator(net_shape=net_shape,nu_ph=nu_ph,de_ph=de_ph,prev_nu_ph=prev_nu_ph,\
                                                prev_de_ph=prev_de_ph,reg=args.reg,cl_constr=args.constr,\
@@ -194,15 +197,14 @@ kl = [[],[],[],[],[],[],[],[],[]]
 sample_ratios = pd.DataFrame()
 
 for t in range(args.T):
-    
     if args.unlimit_samples:
         nu_generator = generator(mean=nu_mean,std=nu_std,d_dim=args.d_dim)
         de_generator = generator(mean=de_mean,std=de_std,d_dim=args.d_dim)
 
-    if args.continual_ratio:
-        nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist)
-    else:
-        nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist,de_sample_size=50000)
+    #if args.continual_ratio:
+    nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist)
+    #else:
+    #    nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist,de_sample_size=args.sample_size)
     
         
     print('check sample',nu_samples.shape)
@@ -212,7 +214,7 @@ for t in range(args.T):
     else:
         t_nu_samples,t_de_samples = None, None    
     
-    tf.global_variables_initializer().run()
+    tf.global_variables_initializer().run(session=sess)
 
     # load checkpoint for first task
     if t==0 and len(args.warm_start) != 0:
@@ -311,7 +313,7 @@ for t in range(args.T):
             plt.scatter(ori_nu_samples[:100], nu_y[:100],marker='>', label=r'$D_1$')
             plt.scatter(de_samples[:100], de_y[:100],marker='*', label=r'$D_t$')
             plt.plot(X_plot, py, color='turquoise', lw=lw,
-                    label=r'$LR+IS:D_t$')
+                    label=r'$LR+IW:D_t$')
             plt.plot(X_plot, py2, color='red', lw=lw,
                     label=r'$LR:D_t$')
             plt.legend(loc="best",  scatterpoints=1,fontsize=12)
@@ -383,7 +385,7 @@ for t in range(args.T):
 
         # update model loss 
         if args.continual_ratio:       
-            cl_ratio_model.update_estimator(sess)
+            cl_ratio_model.update_estimator(sess,increase_constr=args.increase_constr)
 
 # In[39]:
 

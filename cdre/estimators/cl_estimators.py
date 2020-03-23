@@ -86,11 +86,13 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
         return prev_nu_H[-1],prev_de_H[-1]
 
 
-    def update_estimator(self,sess):
+    def update_estimator(self,sess,increase_constr=False):
         
         self.prev_nu_r,self.prev_de_r = self.save_prev_estimator(sess)
         self.estimator.nu_r = self.estimator.nu_H[-1] - self.prev_nu_r
         self.estimator.de_r = self.estimator.de_H[-1] - self.prev_de_r
+        if increase_constr:
+            self.lambda_constr += self.lambda_constr
         self.update_train(self.estimator)
 
         return
