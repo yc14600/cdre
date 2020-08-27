@@ -86,8 +86,12 @@ parser.add_argument('--num_components', default=1, type=int, help='generate samp
 parser.add_argument('--component_weights',default=[],type=str2flist,help='component weights of mixture Gaussian')
 parser.add_argument('--continual_ratio', default=True, type=str2bool, help='if False, estimate ratio by original data')
 parser.add_argument('--festimator', default=False, type=str2bool, help='use f-estimator')
+parser.add_argument('--cuda', default=False, type=str2bool, help='use cuda')
 
 args = parser.parse_args()
+
+if not args.cuda:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 if args.vis:
     import matplotlib as mtp
@@ -126,8 +130,8 @@ if not args.continual_ratio:
 
 # dist = 'Normal'
 if args.num_components == 1:
-    delta_mean = args.delta_mean if args.delta_mean != 0. else args.delta_list[0]#np.random.uniform(-0.5,0.5)
-    ori_nu_mean, ori_nu_std = 1., .5
+    delta_mean = args.delta_mean #if args.delta_mean != 0. else args.delta_list[0]#np.random.uniform(-0.5,0.5)
+    ori_nu_mean, ori_nu_std = 0., 1.
     de_mean = ori_nu_mean + delta_mean 
     de_std = ori_nu_std + args.delta_std 
     nu_mean, nu_std = ori_nu_mean, ori_nu_std
@@ -235,7 +239,7 @@ for t in range(args.T):
 
 
     # save results
-    test_samples = de_samples
+    test_samples = np.vstack([de_samples,t_de_samples]) #de_samples #
     estimated_ratio = cl_ratio_model.estimator.log_ratio(sess,test_samples,test_samples).reshape(-1)
     if t > 0 and args.continual_ratio:
         estimated_original_ratio = cl_ratio_model.original_log_ratio(sess,test_samples,test_samples).reshape(-1)
@@ -251,11 +255,11 @@ for t in range(args.T):
         sample_ratios['true_log_ratio'] = true_ratio
         sample_ratios['true_step_log_ratio'] = true_step_ratio
 
-        true_kl = np.mean(-true_ratio)
+        true_kl = Gaussian_KL(de_dist,ori_nu_dist,args.d_dim) #np.mean(-true_ratio)
         kl[0].append(true_kl)
         est_kl = np.mean(- estimated_original_ratio)
         kl[1].append(est_kl)
-        true_step_kl = np.mean(- true_step_ratio)
+        true_step_kl = Gaussian_KL(de_dist, nu_dist,args.d_dim) #np.mean(- true_step_ratio)
         kl[2].append(true_step_kl)
         step_kl = np.mean(- estimated_ratio)
         kl[3].append(step_kl)
@@ -371,8 +375,8 @@ for t in range(args.T):
             #print('de mean',de_mean,'de std',de_std)
             nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
         else:
-            if args.delta_mean == 0. :
-                delta_mean =  args.delta_list[t+1] #np.random.uniform(-0.5,0.5)
+            #if args.delta_mean == 0. :
+            #    delta_mean =  args.delta_list[t+1] #np.random.uniform(-0.5,0.5)
 
             print('delta par',args.delta_mean)
                         
@@ -385,7 +389,7 @@ for t in range(args.T):
 
         # update model loss 
         if args.continual_ratio:       
-            cl_ratio_model.update_estimator(sess,increase_constr=args.increase_constr)
+            cl_ratio_model.update_estimator(sess,increase_constr=args.increase_constr,nu_samples=nu_samples,de_samples=de_samples)
 
 # In[39]:
 

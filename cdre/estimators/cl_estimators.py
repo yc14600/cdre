@@ -29,6 +29,7 @@ class Continual_Estimator(ABC):
         self.cl_constr = cl_constr
         self.lambda_constr = lambda_constr
         self.bayes = bayes
+        self.correction = 1.
         
         if bayes:
             # initialize prior parameters
@@ -77,25 +78,37 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
 
         self.prev_W = sess.run(self.estimator.W)
         self.prev_B = sess.run(self.estimator.B)
-        print('check params',[np.sum(np.isnan(w)) for w in self.prev_W],[np.sum(np.isnan(b)) for b in self.prev_B])
+        #print('check params',[np.sum(np.isnan(w)) for w in self.prev_W],[np.sum(np.isnan(b)) for b in self.prev_B])
         conv_L = len(self.estimator.net_shape[0]) if self.estimator.conv else 0
-        print('conv_L',conv_L)
+        #print('conv_L',conv_L)
         prev_nu_H = GAN.restore_d_net(self.prev_nu_ph,self.prev_W,self.prev_B,conv_L,ac_fn=self.estimator.ac_fn,batch_norm=False)
         prev_de_H = GAN.restore_d_net(self.prev_de_ph,self.prev_W,self.prev_B,conv_L,ac_fn=self.estimator.ac_fn,batch_norm=False)
 
         return prev_nu_H[-1],prev_de_H[-1]
 
 
-    def update_estimator(self,sess,increase_constr=False):
+    def update_estimator(self,sess,increase_constr=False,nu_samples=None,de_samples=None):
         
         self.prev_nu_r,self.prev_de_r = self.save_prev_estimator(sess)
         self.estimator.nu_r = self.estimator.nu_H[-1] - self.prev_nu_r
         self.estimator.de_r = self.estimator.de_H[-1] - self.prev_de_r
         if increase_constr:
             self.lambda_constr += self.lambda_constr
+        print('lambda_c',self.lambda_constr)
+        if self.lambda_constr == 0:
+            self.update_correction(nu_samples,de_samples,sess)
+
         self.update_train(self.estimator)
 
         return
+
+    def update_correction(self,nu_samples,de_samples,sess):
+        Psi_prev = sess.run(tf.reduce_mean(tf.exp(self.prev_de_r)),feed_dict={self.prev_de_ph:nu_samples})
+        Psi_curr = sess.run(tf.reduce_mean(tf.exp(self.estimator.de_H[-1])),feed_dict={self.estimator.de_ph:de_samples})
+        Phi = sess.run(tf.reduce_mean(tf.exp(self.estimator.nu_r)),feed_dict={self.prev_nu_ph:de_samples,self.estimator.nu_ph:de_samples})
+        self.correction = (self.correction * Psi_prev * Phi / Psi_curr).astype(np.float32)
+         
+        print('update correction',self.correction)       
 
     def get_cl_constr(self):
         estimator = self.estimator
@@ -130,7 +143,8 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
         
         r = self.estimator.ratio(sess,x,x_de,\
                                     nu_r=self.estimator.nu_H[-1],\
-                                    de_r=self.estimator.de_H[-1])        
+                                    de_r=self.estimator.de_H[-1],\
+                                    correction=self.correction)        
         
         return r
 
@@ -139,7 +153,8 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
         
         r = self.estimator.log_ratio(sess,x,x_de,\
                                     nu_r=self.estimator.nu_H[-1],\
-                                    de_r=self.estimator.de_H[-1])
+                                    de_r=self.estimator.de_H[-1],\
+                                    correction=self.correction)
         return r
 
     

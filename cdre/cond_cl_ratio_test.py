@@ -30,7 +30,7 @@ from base_models.gans import fGAN
 from base_models.classifier import Classifier
 from base_models.vae import VAE, Discriminant_VAE
 from cl_models import Continual_VAE, Continual_DVAE
-from cdre.estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
+from estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
 from utils.train_util import one_hot_encoder,shuffle_data,shuffle_batches,condition_mean,load_cifar10,gen_class_split_data
 from utils.test_util import *
 from utils.data_util import *
@@ -47,52 +47,53 @@ from sklearn.random_projection import GaussianRandomProjection
 
 # In[7]:
 parser = argparse.ArgumentParser()
-parser.add_argument('-d_dim', default=2, type=int, help='data dimension')
-parser.add_argument('-T', default=10, type=int, help='number of tasks')
-parser.add_argument('-dataset', default='toy_gaussians', type=str, help='type of test dataset')
-parser.add_argument('-dpath', default='./', type=str, help='path of model samples when dataset is not toy_gaussians')
-parser.add_argument('-rdpath', default='/home/yu/gits/data/', type=str, help='path of real data samples when dataset is not toy_gaussians')
-parser.add_argument('-delta_par', default=0.01, type=float, help='delta value for changing distribution parameters, \
+parser.add_argument('--d_dim', default=2, type=int, help='data dimension')
+parser.add_argument('--T', default=10, type=int, help='number of tasks')
+parser.add_argument('--dataset', default='toy_gaussians', type=str, help='type of test dataset')
+parser.add_argument('--dpath', default='./', type=str, help='path of model samples when dataset is not toy_gaussians')
+parser.add_argument('--rdpath', default='/home/yu/gits/data/', type=str, help='path of real data samples when dataset is not toy_gaussians')
+parser.add_argument('--delta_par', default=0.01, type=float, help='delta value for changing distribution parameters, \
                                 if 0, it is randomly drawn from a uniform distribution U(0.005,0.025) at each step.')
-parser.add_argument('-scale_shrink', default='True', type=str2bool, help='if True, decrease standard deviation at each step, \
+parser.add_argument('--scale_shrink', default='True', type=str2bool, help='if True, decrease standard deviation at each step, \
                                                                     if False, increase it, by the value of delta_par.')
-parser.add_argument('-delta_list', default=[], type=str2flist, help='the list of delta parameter for each task')
-parser.add_argument('-sample_size', default=50000, type=int, help='number of samples')
-parser.add_argument('-test_sample_size', default=10000, type=int, help='number of test samples')
-parser.add_argument('-batch_size', default=2000, type=int, help='batch size')
-parser.add_argument('-epoch', default=10000, type=int, help='number of epochs')
-parser.add_argument('-print_e', default=100, type=int, help='number of epochs for printing message')
-parser.add_argument('-learning_rate', default=0.00002, type=float, help='learning rate')
-parser.add_argument('-reg', default=None, type=str, help='type of regularizer,can be l2 or l1')
-parser.add_argument('-lambda_reg', default=1., type=float, help='Lagrange multiplier of regularity loss')
-parser.add_argument('-early_stop', default=True, type=str2bool, help='if early stop when loss increases')
-parser.add_argument('-validation', default=True, type=str2bool, help='if use validation set for early stop')
-parser.add_argument('-constr', default=True, type=str2bool, help='if add continual constraints to the objective')
-parser.add_argument('-lambda_constr', default=1., type=float, help='Lagrange multiplier of continual constraint')
-parser.add_argument('-warm_start', default='', type=str, help='specify the file path to load a trained model for task 0')
-parser.add_argument('-result_path', default='./results/', type=str, help='specify the path for saving results')
-parser.add_argument('-seed', default=0, type=int, help='random seed')
-parser.add_argument('-divergence', default='KL', type=str, help='the divergence used to optimize the ratio model, one of [KL, Chi]')
-parser.add_argument('-vis', default=False, type=str2bool, help='enable visualization')
-parser.add_argument('-save_model',default=False, type=str2bool, help='if True, save task0 model')
-parser.add_argument('-save_ratios',default=True, type=str2bool, help='if True, save sample ratios for each task')
-parser.add_argument('-hidden_layers', default=[256,256], type=str2ilist, help='size of hidden layers, no space between characters')
-parser.add_argument('-bayes', default=False, type=str2bool, help='enable Bayesian prior')
-parser.add_argument('-local_constr', default=0., type=float, help='enable local estimator\'s constraint')
-parser.add_argument('-num_components', default=1, type=int, help='generate samples from mixture Gaussian distributions if larger than 1,\
+parser.add_argument('--delta_list', default=[], type=str2flist, help='the list of delta parameter for each task')
+parser.add_argument('--sample_size', default=50000, type=int, help='number of samples')
+parser.add_argument('--test_sample_size', default=10000, type=int, help='number of test samples')
+parser.add_argument('--batch_size', default=2000, type=int, help='batch size')
+parser.add_argument('--epoch', default=10000, type=int, help='number of epochs')
+parser.add_argument('--print_e', default=100, type=int, help='number of epochs for printing message')
+parser.add_argument('--learning_rate', default=0.00001, type=float, help='learning rate')
+parser.add_argument('--reg', default=None, type=str, help='type of regularizer,can be l2 or l1')
+parser.add_argument('--lambda_reg', default=0., type=float, help='Lagrange multiplier of regularity loss')
+parser.add_argument('--early_stop', default=True, type=str2bool, help='if early stop when loss increases')
+parser.add_argument('--validation', default=True, type=str2bool, help='if use validation set for early stop')
+parser.add_argument('--constr', default=True, type=str2bool, help='if add continual constraints to the objective')
+parser.add_argument('--lambda_constr', default=1., type=float, help='Lagrange multiplier of continual constraint')
+parser.add_argument('--increase_constr', default=False, type=bool, help='increase Lagrange multiplier of continual constraint when number of tasks increase')
+parser.add_argument('--warm_start', default='', type=str, help='specify the file path to load a trained model for task 0')
+parser.add_argument('--result_path', default='./results/', type=str, help='specify the path for saving results')
+parser.add_argument('--seed', default=0, type=int, help='random seed')
+parser.add_argument('--divergence', default='KL', type=str, help='the divergence used to optimize the ratio model, one of [KL, Chi]')
+parser.add_argument('--vis', default=False, type=str2bool, help='enable visualization')
+parser.add_argument('--save_model',default=False, type=str2bool, help='if True, save task0 model')
+parser.add_argument('--save_ratios',default=True, type=str2bool, help='if True, save sample ratios for each task')
+parser.add_argument('--hidden_layers', default=[256,256], type=str2ilist, help='size of hidden layers, no space between characters')
+parser.add_argument('--bayes', default=False, type=str2bool, help='enable Bayesian prior')
+parser.add_argument('--local_constr', default=0., type=float, help='enable local estimator\'s constraint')
+parser.add_argument('--num_components', default=1, type=int, help='generate samples from mixture Gaussian distributions if larger than 1,\
                                                                     each step removes one mode')
-parser.add_argument('-component_weights',default=[],type=str2flist,help='component weights of mixture Gaussian')
-parser.add_argument('-continual_ratio', default=True, type=str2bool, help='if False, estimate ratio by original data')
-parser.add_argument('-multihead', default=False, type=bool, help='one output unit for each condition')
-parser.add_argument('-festimator', default=False, type=str2bool, help='use f-estimator')
-parser.add_argument('-grad_clip', default=None, type=str2flist, help='add clip for gradients')
-parser.add_argument('-conv',default=False,type=str2bool,help='if True, use convolutional nets')
-parser.add_argument('-min_epoch',default=50,type=int,help='minimum number of epochs when using early_stop')
-parser.add_argument('-model_type',default='continual',type=str,help='could be bestmodel,bestdata or continual')
-parser.add_argument('-dim_reduction', default=None, type=str, help='reduce dimension before ratio estimation,could be vae or rand_proj')
-parser.add_argument('-z_dim',default=128,type=int,help='dimension of latent feature space')
-parser.add_argument('-random_encode',default=True,type=str2bool,help='if True, encode return qz, if False, encode return qz.loc')
-parser.add_argument('-dvae_lamb',default=1e-10,type=float,help='lambda of discriminant VAE')
+parser.add_argument('--component_weights',default=[],type=str2flist,help='component weights of mixture Gaussian')
+parser.add_argument('--continual_ratio', default=True, type=str2bool, help='if False, estimate ratio by original data')
+parser.add_argument('--multihead', default=False, type=bool, help='one output unit for each condition')
+parser.add_argument('--festimator', default=False, type=str2bool, help='use f-estimator')
+parser.add_argument('--grad_clip', default=None, type=str2flist, help='add clip for gradients')
+parser.add_argument('--conv',default=False,type=str2bool,help='if True, use convolutional nets')
+parser.add_argument('--min_epoch',default=100,type=int,help='minimum number of epochs when using early_stop')
+parser.add_argument('--model_type',default='continual',type=str,help='could be bestmodel,bestdata or continual')
+parser.add_argument('--dim_reduction', default=None, type=str, help='reduce dimension before ratio estimation,could be vae or rand_proj')
+parser.add_argument('--z_dim',default=128,type=int,help='dimension of latent feature space')
+parser.add_argument('--random_encode',default=True,type=str2bool,help='if True, encode return qz, if False, encode return qz.loc')
+parser.add_argument('--dvae_lamb',default=1e-10,type=float,help='lambda of discriminant VAE')
 
 args = parser.parse_args()
 #print('check clip',args.grad_clip)
@@ -352,8 +353,8 @@ for t in range(args.T):
 
    
     # save results
-    test_samples = de_samples#t_de_samples if args.validation else de_samples
-    test_samples_c = samples_c#t_samples_c if args.validation else samples_c
+    test_samples = np.vstack([de_samples,t_de_samples])#de_samples#t_de_samples if args.validation else de_samples
+    test_samples_c = np.vstack([samples_c,t_samples_c])#t_samples_c if args.validation else samples_c
 
     if test_samples.shape[0] < batch_size:
         ids = np.random.choice(np.arange(test_samples.shape[0]),size=batch_size)
@@ -404,13 +405,18 @@ for t in range(args.T):
             divgergences['est_original_'+div] = est_ds[0]
             #divgergences['est_step_'+div] = est_ds[1]
             if div == odiv: #compatable for earlier code
-                kl[0].append(true_ds[0][:t+1].mean())
-                kl[1].append(est_ds[0][:t+1].mean())
-                kl[2].append(true_ds[1][:t+1].mean())    
-                #kl[3].append(est_ds[1][:t+1].mean())        
+                if 'odiv' == 'rv_KL':
+                    kl[0].append(np.mean([Gaussian_KL(de_d,ori_nu_d,args.d_dim) for de_d, ori_nu_d in zip(de_dists,ori_nu_dists)]))
+                    kl[2].append(np.mean([Gaussian_KL(de_d,nu_d,args.d_dim) for de_d, nu_d in zip(de_dists,nu_dists)]))
 
-                print('divs',div, true_ds[0],est_ds[0],true_ds[1])
-                print('avg divs',kl[0][-1],kl[1][-1],kl[2][-1])
+                else:
+                    kl[0].append(true_ds[0][:t+1].mean())                    
+                    kl[2].append(true_ds[1][:t+1].mean())    
+                    #kl[3].append(est_ds[1][:t+1].mean())  
+                           
+                kl[1].append(est_ds[0][:t+1].mean())
+                #print('divs',div, true_ds[0],est_ds[0],true_ds[1])
+                print('avg divs',kl[0][-1],kl[1][-1])
 
     else:
         for div in div_types:
@@ -476,7 +482,7 @@ for t in range(args.T):
             
         # update model loss 
         if args.continual_ratio:       
-            cl_ratio_model.update_estimator(sess,t+1)
+            cl_ratio_model.update_estimator(sess,t+1,increase_constr=args.increase_constr)
 
         #if args.dim_reduction=='vae':
         #    vtrainer.save_params()

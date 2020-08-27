@@ -27,7 +27,7 @@ class Estimator(ABC):
         self.batch_train = batch_train
         self.lambda_reg = lambda_reg
         self.bayes = bayes
-        self.constr = constr
+        self.constr = constr 
 
         self.is_training = tf.placeholder(dtype=tf.bool,shape=[],name='estimator_batchnorm') if batch_norm else None
 
@@ -68,14 +68,14 @@ class Estimator(ABC):
 
 class LogLinear_Estimator(Estimator):
     
-    def log_ratio(self,sess,x_nu,x_de,nu_r=None,de_r=None,coef=None,*args,**kargs):
+    def log_ratio(self,sess,x_nu,x_de,nu_r=None,de_r=None,coef=None,correction=1.,*args,**kargs):
         
         nu_r = self.nu_r if nu_r is None else nu_r
         de_r = self.de_r if de_r is None else de_r
         coef = self.coef if coef is None else coef
 
         if coef is None:
-            log_r = nu_r - tf.log(tf.reduce_mean(tf.exp(de_r)))
+            log_r = nu_r - tf.log(tf.reduce_mean(tf.exp(de_r))) - tf.log(correction)
    
         else:
             log_r = tf.matmul(nu_r,coef) - tf.log(tf.reduce_mean(tf.exp(tf.matmul(de_r,coef))))
@@ -87,8 +87,8 @@ class LogLinear_Estimator(Estimator):
         return sess.run(log_r,feed_dict)
         
 
-    def ratio(self,sess,x_nu,x_de,nu_r=None,de_r=None,coef=None,*args,**kargs):
-        log_r = self.log_ratio(sess,x_nu,x_de,nu_r,de_r,coef)
+    def ratio(self,sess,x_nu,x_de,nu_r=None,de_r=None,coef=None,correction=1.,*args,**kargs):
+        log_r = self.log_ratio(sess,x_nu,x_de,nu_r,de_r,coef,correction=correction)
         return np.exp(log_r)
     
 
@@ -130,7 +130,7 @@ class LogLinear_Estimator(Estimator):
 
     def learning(self,sess,nu_samples,de_samples,test_nu_samples=None,test_de_samples=None,\
                     batch_size=64,epoch=50,print_e=1,nu_dist=None,de_dist=None,early_stop=False,\
-                    tol=0.,update_feed_dict=None,min_epoch=10,*args,**kargs):
+                    tol=0.,update_feed_dict=None,min_epoch=100,*args,**kargs):
         min_loss = -20.
         if update_feed_dict is None:
             update_feed_dict = self.update_feed_dict
@@ -178,19 +178,26 @@ class LogLinear_Estimator(Estimator):
                 #t_feed_dict = {self.is_training:False} if self.batch_norm else {}
                 #t_feed_dict.update({self.nu_ph:test_nu_samples,self.de_ph:test_de_samples})
                 #print(tfarg)
-                t_feed_dict,_ = update_feed_dict(test_nu_samples,test_de_samples,0,batch_size,tfarg,**kargs)
-                tloss,tlloss = sess.run([self.loss,self.ll_loss],feed_dict=t_feed_dict)
+                ni = int(np.ceil(test_de_samples.shape[0]/batch_size))
+                tloss,tlloss = 0.,0.
+                for _ in range(ni):
+                    t_feed_dict,_ = update_feed_dict(test_nu_samples,test_de_samples,_,batch_size,tfarg,**kargs)
+                    tl = sess.run(self.loss,feed_dict=t_feed_dict)
+                    tloss+=tl
+                tloss/=ni   
                 if np.isnan(tloss):
                     #ll = sess.run(self.ll_loss,t_feed_dict)
-                    print('tloss is nan',e,i,'lloss',tlloss)
+                    print('tloss is nan',e,i)
                 #tratio = np.mean(1./self.ratio(sess,nu_samples,de_samples))               
                 #avg_tloss+=tloss
-                    
+
+            losses.append(loss)
+            tlosses.append(tloss)        
             #avg_loss/=num_iters
             #avg_tloss/=num_iters
-            losses.append(loss)
+            
             #tlosses.append(avg_tloss)
-            tlosses.append(tloss)
+            
             #print('losses',loss,lloss,tloss,tlloss)
             if e%print_e==0:
 
@@ -203,7 +210,7 @@ class LogLinear_Estimator(Estimator):
                     avg_err = np.mean(np.abs(true_ratio-estimated_ratio))                
                     true_errs.append(avg_err)
 
-                print('epoch',e,'loss',loss,'test loss',tloss,'avg log err',avg_err)
+                print('epoch',e,'loss',loss,'valid loss',tloss,'avg log err',avg_err)
         
 
             if early_stop:
@@ -212,15 +219,13 @@ class LogLinear_Estimator(Estimator):
                     break
 
                 if test_nu_samples is not None:
-                    if (e+1 > min_epoch and tlosses[-2] - tlosses[-1] < tol) or tlloss < min_loss:
-                        print('early stop satisfied by tloss',tlosses[-1])
+                    if (e+1 > min_epoch and tlosses[-2] - tlosses[-1] < tol and tlosses[-3] - tlosses[-2] < tol) or tlloss < min_loss:
+                        print('early stop satisfied by vloss',tlosses[-1])
                         break
 
-                elif (e+1 >  min_epoch and losses[-2] - losses[-1] < tol):
+                elif (e+1 >  min_epoch and losses[-2] - losses[-1] < tol and losses[-3] - losses[-2] < tol):
                     print('early stop satisfied by loss',losses[-1])
-                    break
-
-                
+                    break                
 
         if self.bayes:
             rts = self.log_ratio(sess,nu_samples,de_samples)

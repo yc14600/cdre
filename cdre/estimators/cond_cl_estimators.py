@@ -45,11 +45,12 @@ class Cond_Continual_LogLinear_Estimator(Continual_LogLinear_Estimator):
             raise NotImplementedError
 
     
-    def update_estimator(self,sess,t):
+    def update_estimator(self,sess,t,increase_constr=False):
         self.t = t
         self.estimator.max_c = t+1
-        self.lambda_constr = self.lambda_constr * (t+1) / t
-        print('update lambda_ce',self.lambda_constr)
+        if increase_constr:
+            self.lambda_constr = self.lambda_constr * (t+1) / t
+            print('update lambda_ce',self.lambda_constr)
         self.prev_nu_r,self.prev_de_r = self.save_prev_estimator(sess)
         self.prev_nu_r = tf.clip_by_value(self.prev_nu_r,-60.,60.)
         self.prev_de_r = tf.clip_by_value(self.prev_de_r,-60.,60.)
