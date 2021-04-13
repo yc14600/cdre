@@ -52,6 +52,8 @@ class generator(object):
 # In[7]:
 parser = argparse.ArgumentParser()
 parser.add_argument('--d_dim', default=2, type=int, help='data dimension')
+parser.add_argument('--dataset', default='gaussian', type=str, help='data set name')
+parser.add_argument('--datapath', default='', type=str, help='data path when it is not gaussian')
 parser.add_argument('--task_type', default='div', type=str, help='task type, div or regression')
 parser.add_argument('--T', default=10, type=int, help='number of tasks')
 parser.add_argument('--delta_mean', default=0.01, type=float, help='delta value for changing distribution parameters, \
@@ -87,6 +89,8 @@ parser.add_argument('--component_weights',default=[],type=str2flist,help='compon
 parser.add_argument('--continual_ratio', default=True, type=str2bool, help='if False, estimate ratio by original data')
 parser.add_argument('--festimator', default=False, type=str2bool, help='use f-estimator')
 parser.add_argument('--cuda', default=False, type=str2bool, help='use cuda')
+parser.add_argument('--restart', default=False, type=str2bool, help='restart in the process of cdre by some condition')
+parser.add_argument('--restart_th', default=0.1, type=float, help='restart threshold')
 
 args = parser.parse_args()
 
@@ -129,33 +133,38 @@ if not args.continual_ratio:
 # In[8]:
 
 # dist = 'Normal'
-if args.num_components == 1:
-    delta_mean = args.delta_mean #if args.delta_mean != 0. else args.delta_list[0]#np.random.uniform(-0.5,0.5)
-    ori_nu_mean, ori_nu_std = 0., 1.
-    de_mean = ori_nu_mean + delta_mean 
-    de_std = ori_nu_std + args.delta_std 
-    nu_mean, nu_std = ori_nu_mean, ori_nu_std
+if args.dataset == 'gaussian':
+    if args.num_components == 1:
+        delta_mean = args.delta_mean #if args.delta_mean != 0. else args.delta_list[0]#np.random.uniform(-0.5,0.5)
+        ori_nu_mean, ori_nu_std = 0., 1.
+        de_mean = ori_nu_mean + delta_mean 
+        de_std = ori_nu_std + args.delta_std 
+        nu_mean, nu_std = ori_nu_mean, ori_nu_std
 
-    nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std)
+        nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std)
 
-else:
-    # mixture Gaussian
-    ori_nu_mean = [0. + k * 3. for k in range(args.num_components)]
-    ori_nu_std = [1.]*args.num_components
-    nu_mean, nu_std = ori_nu_mean, ori_nu_std
-    de_mean = ori_nu_mean[:-1]
-    de_std = ori_nu_std[:-1]
-    if len(args.component_weights) > 0:
-        nu_pi = args.component_weights
-        de_pi = normalize(nu_pi[:-1])
     else:
-        nu_pi = [1./len(nu_mean)]*len(nu_mean)
-        de_pi = [1./len(de_mean)]*len(de_mean)
+        # mixture Gaussian
+        ori_nu_mean = [0. + k * 3. for k in range(args.num_components)]
+        ori_nu_std = [1.]*args.num_components
+        nu_mean, nu_std = ori_nu_mean, ori_nu_std
+        de_mean = ori_nu_mean[:-1]
+        de_std = ori_nu_std[:-1]
+        if len(args.component_weights) > 0:
+            nu_pi = args.component_weights
+            de_pi = normalize(nu_pi[:-1])
+        else:
+            nu_pi = [1./len(nu_mean)]*len(nu_mean)
+            de_pi = [1./len(de_mean)]*len(de_mean)
 
-    print('check mean',ori_nu_mean,de_mean)
-    print('check pi',nu_pi,de_pi)
+        print('check mean',ori_nu_mean,de_mean)
+        print('check pi',nu_pi,de_pi)
 
-    nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
+        nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
+    ori_nu_dist = nu_dist
+
+elif args.dataset == 'stock':
+    dataset = np.load(args.datapath)
              
 
 if args.task_type == 'regression':  
@@ -164,7 +173,7 @@ if args.task_type == 'regression':
         return 1.2*np.power(x,3)-2.4*np.power(x,2)+3.6*x
 
 d_dim = args.d_dim
-ori_nu_dist = nu_dist
+
 
 
 nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='nu_ph')
@@ -201,19 +210,28 @@ kl = [[],[],[],[],[],[],[],[],[]]
 sample_ratios = pd.DataFrame()
 
 for t in range(args.T):
+    restart = False
     if args.unlimit_samples:
         nu_generator = generator(mean=nu_mean,std=nu_std,d_dim=args.d_dim)
         de_generator = generator(mean=de_mean,std=de_std,d_dim=args.d_dim)
 
     #if args.continual_ratio:
-    nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist)
+    if args.dataset == 'gaussian':
+        nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist)
+    elif args.dataset == 'stock':
+        # remove the 1st dimenstion which is time stamp
+        nu_samples = dataset[t][:args.sample_size,1:]
+        t_nu_samples = dataset[t][-args.test_sample_size:,1:]
+        de_samples = dataset[t+1][:args.sample_size,1:]
+        t_de_samples = dataset[t+1][-args.test_sample_size:,1:] 
     #else:
     #    nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist,de_sample_size=args.sample_size)
     
         
     print('check sample',nu_samples.shape)
-    if args.validation:
-        t_nu_samples,t_de_samples = get_samples(args.test_sample_size,nu_dist,de_dist)
+    if args.validation: 
+        if args.dataset == 'gaussian':
+            t_nu_samples,t_de_samples = get_samples(args.test_sample_size,nu_dist,de_dist)
 
     else:
         t_nu_samples,t_de_samples = None, None    
@@ -250,20 +268,26 @@ for t in range(args.T):
     sample_ratios['estimated_original_log_ratio'] = estimated_original_ratio
     
     if args.task_type == 'div':
-        true_ratio = -de_dist.log_prob(test_samples) + ori_nu_dist.log_prob(test_samples)
-        true_step_ratio = -de_dist.log_prob(test_samples) + nu_dist.log_prob(test_samples)
-        sample_ratios['true_log_ratio'] = true_ratio
-        sample_ratios['true_step_log_ratio'] = true_step_ratio
+        if args.dataset == 'gaussian':
+            true_ratio = -de_dist.log_prob(test_samples) + ori_nu_dist.log_prob(test_samples)
+            true_step_ratio = -de_dist.log_prob(test_samples) + nu_dist.log_prob(test_samples)
+            sample_ratios['true_log_ratio'] = true_ratio
+            sample_ratios['true_step_log_ratio'] = true_step_ratio
 
-        true_kl = Gaussian_KL(de_dist,ori_nu_dist,args.d_dim) #np.mean(-true_ratio)
-        kl[0].append(true_kl)
+            true_kl = Gaussian_KL(de_dist,ori_nu_dist,args.d_dim) #np.mean(-true_ratio)
+            kl[0].append(true_kl)
+            true_step_kl = Gaussian_KL(de_dist, nu_dist,args.d_dim) #np.mean(- true_step_ratio)
+            kl[2].append(true_step_kl)
+            print('true kls', true_kl,true_step_kl)
+        
         est_kl = np.mean(- estimated_original_ratio)
         kl[1].append(est_kl)
-        true_step_kl = Gaussian_KL(de_dist, nu_dist,args.d_dim) #np.mean(- true_step_ratio)
-        kl[2].append(true_step_kl)
+        if args.restart and est_kl > args.restart_th:
+            print('restart at task {}'.format(t))
+            restart = True
         step_kl = np.mean(- estimated_ratio)
         kl[3].append(step_kl)
-        print('kls', true_kl,est_kl,true_step_kl,step_kl)
+        print('kls', est_kl,step_kl)
         if t > 0 and args.continual_ratio:
             contr = cl_ratio_model.get_cl_constr()
             contr = sess.run(contr,feed_dict={cl_ratio_model.estimator.nu_ph:nu_samples,cl_ratio_model.estimator.de_ph:de_samples})
@@ -271,7 +295,7 @@ for t in range(args.T):
             contr = 1.
         kl[4].append(contr)
         print('constrain check',contr)
-
+        '''
         true_tv = 0.5*np.mean(np.abs(np.exp(true_ratio)-1.))
         est_tv = 0.5*np.mean(np.abs(np.exp(estimated_original_ratio)-1.))
         kl[5].append(true_tv)
@@ -283,7 +307,7 @@ for t in range(args.T):
         kl[7].append(true_chi)
         kl[8].append(est_chi) 
         print('true chi',true_chi,'estimated chi',est_chi)
-
+        '''
 
     elif args.task_type == 'regression':
         if t == 0:
@@ -360,41 +384,44 @@ for t in range(args.T):
     
     # update distributions and model
     if t < args.T - 1 :
-        if args.continual_ratio:
-            nu_mean, nu_std = de_mean, de_std
-
-
-        if args.num_components > 1:
+        if args.dataset=='gaussian':
             if args.continual_ratio:
-                nu_pi = de_pi
-            de_mean = de_mean[:-1]
-            print('check de mean',de_mean)
-            de_std = de_std[:-1]        
-            de_pi = normalize(de_pi[:-1])
-            print('component weights',nu_pi,de_pi)
-            #print('de mean',de_mean,'de std',de_std)
-            nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
-        else:
-            #if args.delta_mean == 0. :
-            #    delta_mean =  args.delta_list[t+1] #np.random.uniform(-0.5,0.5)
+                nu_mean, nu_std = de_mean, de_std
 
-            print('delta par',args.delta_mean)
-                        
-            de_mean += delta_mean
-            de_std += args.delta_std 
-            print(nu_mean,nu_std,de_mean,de_std,ori_nu_mean,ori_nu_std)
-            nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std)
-            
+
+            if args.num_components > 1:
+                if args.continual_ratio:
+                    nu_pi = de_pi
+                de_mean = de_mean[:-1]
+                print('check de mean',de_mean)
+                de_std = de_std[:-1]        
+                de_pi = normalize(de_pi[:-1])
+                print('component weights',nu_pi,de_pi)
+                #print('de mean',de_mean,'de std',de_std)
+                nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
+            else:
+                #if args.delta_mean == 0. :
+                #    delta_mean =  args.delta_list[t+1] #np.random.uniform(-0.5,0.5)
+
+                print('delta par',args.delta_mean)
+                            
+                de_mean += delta_mean
+                de_std += args.delta_std 
+                print(nu_mean,nu_std,de_mean,de_std,ori_nu_mean,ori_nu_std)
+                nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std)
+   
                 
 
         # update model loss 
-        if args.continual_ratio:       
-            cl_ratio_model.update_estimator(sess,increase_constr=args.increase_constr,nu_samples=nu_samples,de_samples=de_samples)
+        if args.continual_ratio:    
+            cl_ratio_model.update_estimator(sess,increase_constr=args.increase_constr,nu_samples=nu_samples,de_samples=de_samples,restart=restart)
 
 # In[39]:
 
-
-kl = np.array(kl)
+if args.dataset == 'gaussian':
+    kl = np.array(kl)
+else:
+    kl = np.vstack([kl[1],kl[3],kl[4]])
 np.savetxt(sub_dir+'divergence_compare.csv', kl, delimiter=',')
 
 

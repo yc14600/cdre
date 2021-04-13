@@ -8,7 +8,7 @@ import pandas as pd
 import six
 import tensorflow as tf
 from abc import ABC, abstractmethod
-from utils.train_util import config_optimizer, get_next_batch, get_vars_by_scope
+from utils.train_util import config_optimizer, get_next_batch, get_vars_by_scope, shuffle_data
 from base_models.gans import GAN,fGAN
 from base_models.ratio_fgan import Ratio_fGAN
 
@@ -148,7 +148,11 @@ class LogLinear_Estimator(Estimator):
         tfarg = args[1] if len(args)>1 else None
         for e in range(epoch):
             avg_tloss, avg_loss = 0., 0.
-            
+            idx = np.random.choice(len(nu_samples),len(nu_samples),replace=False)
+            nu_samples = nu_samples[idx]
+            #print(type(nu_samples[0].shape))
+            idx = np.random.choice(len(de_samples),len(de_samples),replace=False)
+            de_samples = de_samples[idx]
             ii = 0
             for i in range(num_iters):
 
@@ -251,7 +255,7 @@ class KL_Loglinear_Estimator(LogLinear_Estimator):
         if self.bayes:
             loss +=  0.01*tf.reduce_mean(tf.square(self.nu_r-tf.reduce_mean(self.nu_r)))
         '''
-        loss += self.constr * tf.square(tf.reduce_mean(tf.reduce_mean(tf.exp(self.de_r)) * tf.exp(-1.* self.nu_r)) - 1.)
+        #loss += self.constr * tf.square(tf.reduce_mean(tf.reduce_mean(tf.exp(self.de_r)) * tf.exp(-1.* self.nu_r)) - 1.)
         #ctrs = 0.#tf.square(tf.reduce_mean(tf.reduce_mean(tf.exp(self.de_r))/tf.exp(self.nu_r))-1.)
         #print(loss,self.lambda_reg,reg_loss)
         return loss + self.lambda_reg * reg_loss 

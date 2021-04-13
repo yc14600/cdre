@@ -87,18 +87,22 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
         return prev_nu_H[-1],prev_de_H[-1]
 
 
-    def update_estimator(self,sess,increase_constr=False,nu_samples=None,de_samples=None):
-        
-        self.prev_nu_r,self.prev_de_r = self.save_prev_estimator(sess)
-        self.estimator.nu_r = self.estimator.nu_H[-1] - self.prev_nu_r
-        self.estimator.de_r = self.estimator.de_H[-1] - self.prev_de_r
-        if increase_constr:
-            self.lambda_constr += self.lambda_constr
-        print('lambda_c',self.lambda_constr)
-        if self.lambda_constr == 0:
-            self.update_correction(nu_samples,de_samples,sess)
+    def update_estimator(self,sess,increase_constr=False,nu_samples=None,de_samples=None,restart=False):
+        if not restart:
+            self.prev_nu_r,self.prev_de_r = self.save_prev_estimator(sess)
+            self.estimator.nu_r = self.estimator.nu_H[-1] - self.prev_nu_r
+            self.estimator.de_r = self.estimator.de_H[-1] - self.prev_de_r
+            if increase_constr:
+                self.lambda_constr += self.lambda_constr
+            print('lambda_c',self.lambda_constr)
+            if self.lambda_constr == 0:
+                self.update_correction(nu_samples,de_samples,sess)
+        else:
+            self.prev_nu_r,self.prev_de_r = None,None
+            self.estimator.nu_r = self.estimator.nu_H[-1]
+            self.estimator.de_r = self.estimator.de_H[-1]
 
-        self.update_train(self.estimator)
+        self.update_train(self.estimator,restart=restart)
 
         return
 
@@ -113,14 +117,18 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
     def get_cl_constr(self):
         estimator = self.estimator
         if self.div_type == 'KL':
-            return tf.square(tf.div(tf.reduce_mean(tf.exp(estimator.de_r))*tf.reduce_mean(tf.exp(self.prev_nu_r)),\
+            if self.prev_nu_r is not None:
+                return tf.square(tf.div(tf.reduce_mean(tf.exp(estimator.de_r))*tf.reduce_mean(tf.exp(self.prev_nu_r)),\
                                 tf.reduce_mean(tf.exp(estimator.de_H[-1]))) - 1.)
+            else:
+                return tf.ones(1)
         elif self.div_type == 'Chi':
             return tf.square(tf.reduce_mean(tf.exp(estimator.de_r)) - 1.)
     
-    def update_train(self,estimator,*args,**kargs):
+    def update_train(self,estimator,restart=False,*args,**kargs):
         estimator.ll_loss = estimator.set_loss()
-        if self.cl_constr:
+        print('update train, restart {}'.format(restart))
+        if self.cl_constr and not restart:
             estimator.loss = estimator.ll_loss + self.lambda_constr * self.get_cl_constr()
                                
         else:
