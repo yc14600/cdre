@@ -1,1 +1,0 @@
-python cond_cl_ratio_test.py -d_dim 2 -T 10 -multihead False -dataset mnist -dpath ../../bayes_cl/vis_results/ccfgan/mnist/continual_fgan_Jensen_Shannon/ -sample_size 6000 -test_sample_size 1000 -batch_size 2000 -epoch 2000 -min_epoch 100  -learning_rate 0.00001 -dim_reduction vae -z_dim 64 -seed 0
