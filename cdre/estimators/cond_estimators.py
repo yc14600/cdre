@@ -30,7 +30,7 @@ class Cond_Loglinear_Estimator(LogLinear_Estimator):
 
 
     def concat_condition(self,x_nu,x_de,c):
-        #c = one_hot_encoder(c,self.c_dim)
+
         x_nu = concat_cond_data(x_nu,c,one_hot=False,conv=self.conv)
         if x_nu is not x_de:
             x_de = concat_cond_data(x_de,c,one_hot=False,conv=self.conv)
@@ -48,7 +48,7 @@ class Cond_Loglinear_Estimator(LogLinear_Estimator):
         de_r = de_r * self.c_ph
 
         de_mean = self.exp_de_mean(de_r)
-        log_r = nu_r - tf.log(de_mean) #tf.log(tf.reduce_mean(tf.exp(de_r),axis=0))
+        log_r = nu_r - tf.log(de_mean) 
         log_r *= self.c_ph
         
         
@@ -62,12 +62,12 @@ class Cond_Loglinear_Estimator(LogLinear_Estimator):
             ii = 0
             iters = int(np.ceil(x_nu.shape[0]/batch_size))
             rt = np.zeros([x_nu.shape[0],self.c_ph.shape[-1].value])
-            #print('batch size',batch_size,'iters',iters)
+
             for _ in range(iters):
                 start = ii
                 feed_dict,ii = self.update_feed_dict(x_nu,x_de,ii,batch_size,c)
                 end = ii if ii < x_nu.shape[0] and ii > start else x_nu.shape[0]
-                #print(_,'start',start,'end',end)
+
                 rt[start:end] = sess.run(log_r,feed_dict)[:end-start]
         
         rt[np.isnan(rt)*(c==0)] = 0.
@@ -92,12 +92,12 @@ class Cond_Loglinear_Estimator(LogLinear_Estimator):
 
 
     def update_feed_dict(self,nu_samples,de_samples,ii,batch_size,samples_c,*args,**kargs):
-        #print('cond feed dict')
+
         ii_bk = ii
         feed_dict,ii = super(Cond_Loglinear_Estimator,self).update_feed_dict(nu_samples,de_samples,ii,batch_size)
         c_batch,_,__ = get_next_batch(samples_c,batch_size,ii_bk,repeat=True)
         feed_dict.update({self.c_ph:c_batch})
-        #print('check label balance',np.sum(c_batch,axis=0))
+
         return feed_dict,ii
 
     def exp_de_mean(self,de_r):        
@@ -120,7 +120,6 @@ class Cond_KL_Loglinear_Estimator(Cond_Loglinear_Estimator):
         c_prop = c_num /tf.reduce_sum(c_num)
 
         nu_mean = self.cond_mean(nu_r) 
-        # print('check loss',self.max_c)
         de_mean = self.exp_de_mean(de_r)
         lloss = -nu_mean + tf.log(de_mean)
         if self.constr:

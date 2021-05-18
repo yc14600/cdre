@@ -95,8 +95,6 @@ class LogLinear_Estimator(Estimator):
     def config_train(self,learning_rate=0.001,decay=None,opt=None,clip=None,*args,**kargs):
         
         var_list = get_vars_by_scope(self.scope)
-        #self.de_r = tf.clip_by_value(self.de_r,-20.,20.)
-        #self.nu_r = tf.clip_by_value(self.nu_r,-20.,20.)
         
         grads = tf.gradients(self.loss, var_list)
         if clip is not None:
@@ -166,22 +164,14 @@ class LogLinear_Estimator(Estimator):
                     _,loss,current_nu_mean,current_de_mean = sess.run([self.train,self.loss,self.current_nu_mean,self.current_de_mean],feed_dict=feed_dict)
                 
                 else:
-                    #ll,nr,dr,nh,dh = sess.run([self.loss,self.nu_r,self.de_r,self.nu_H[-1],self.de_H[-1]],feed_dict)
-                    #nnan,dnan = np.isnan(nr).any(),np.isnan(dr).any()
-                    #nhnan,dhnan = np.isnan(nh).any(),np.isnan(dh).any()
                     _,loss,lloss = sess.run([self.train,self.loss,self.ll_loss],feed_dict=feed_dict)
     
                 avg_loss+=loss
                 if np.isnan(loss):
-                    #print('min nu r',np.min(nr),'de r',np.min(dr),'nu h',np.min(nh),'de h',np.min(dh))
-                    #print('max nu r',np.max(nr),'de r',np.max(dr),'nu h',np.max(nh),'de h',np.max(dh))
-                    #raise TypeError('loss is nan',e,i,'lloss',ll,'nu r',nnan,'de r',dnan,'nu h',nhnan,'de h',dhnan)
                     raise TypeError(e,i,'loss is nan')
                     
             if test_nu_samples is not None and test_de_samples is not None:
-                #t_feed_dict = {self.is_training:False} if self.batch_norm else {}
-                #t_feed_dict.update({self.nu_ph:test_nu_samples,self.de_ph:test_de_samples})
-                #print(tfarg)
+
                 ni = int(np.ceil(test_de_samples.shape[0]/batch_size))
                 tloss,tlloss = 0.,0.
                 for _ in range(ni):
@@ -190,19 +180,12 @@ class LogLinear_Estimator(Estimator):
                     tloss+=tl
                 tloss/=ni   
                 if np.isnan(tloss):
-                    #ll = sess.run(self.ll_loss,t_feed_dict)
                     print('tloss is nan',e,i)
-                #tratio = np.mean(1./self.ratio(sess,nu_samples,de_samples))               
-                #avg_tloss+=tloss
+
 
             losses.append(loss)
             tlosses.append(tloss)        
-            #avg_loss/=num_iters
-            #avg_tloss/=num_iters
-            
-            #tlosses.append(avg_tloss)
-            
-            #print('losses',loss,lloss,tloss,tlloss)
+
             if e%print_e==0:
 
                 if test_nu_samples is not None and nu_dist is not None and de_dist is not None:
@@ -251,13 +234,7 @@ class KL_Loglinear_Estimator(LogLinear_Estimator):
     
         self.ll_loss = loss
         reg_loss = tf.reduce_sum(tf.losses.get_regularization_losses())
-        '''
-        if self.bayes:
-            loss +=  0.01*tf.reduce_mean(tf.square(self.nu_r-tf.reduce_mean(self.nu_r)))
-        '''
-        #loss += self.constr * tf.square(tf.reduce_mean(tf.reduce_mean(tf.exp(self.de_r)) * tf.exp(-1.* self.nu_r)) - 1.)
-        #ctrs = 0.#tf.square(tf.reduce_mean(tf.reduce_mean(tf.exp(self.de_r))/tf.exp(self.nu_r))-1.)
-        #print(loss,self.lambda_reg,reg_loss)
+
         return loss + self.lambda_reg * reg_loss 
 
 
@@ -304,9 +281,6 @@ class f_Estimator(LogLinear_Estimator):
         self.divergence = divergence
         super(f_Estimator,self).__init__(net_shape,nu_ph,de_ph,coef,conv,batch_norm,ac_fn,\
                                         reg,scope,batch_train, lambda_reg,bayes,constr)
-        #if divergence == 'Pearson':
-        #    self.de_H[-1] = tf.nn.relu(self.de_H[-1]+2.)
-        #    self.nu_H[-1] = tf.nn.relu(self.nu_H[-1]+2.)
 
         return 
 
@@ -338,9 +312,6 @@ class f_Estimator(LogLinear_Estimator):
 
         idf_gf = Ratio_fGAN.get_idf_gf(self.divergence)
         r = idf_gf(nu_r)
-
-        #norm = tf.reduce_mean(idf_gf(de_r))
-        #r /= norm
 
         feed_dict={self.nu_ph:x,self.de_ph:x_de}
         if self.batch_norm:

@@ -78,9 +78,9 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
 
         self.prev_W = sess.run(self.estimator.W)
         self.prev_B = sess.run(self.estimator.B)
-        #print('check params',[np.sum(np.isnan(w)) for w in self.prev_W],[np.sum(np.isnan(b)) for b in self.prev_B])
+
         conv_L = len(self.estimator.net_shape[0]) if self.estimator.conv else 0
-        #print('conv_L',conv_L)
+
         prev_nu_H = GAN.restore_d_net(self.prev_nu_ph,self.prev_W,self.prev_B,conv_L,ac_fn=self.estimator.ac_fn,batch_norm=False)
         prev_de_H = GAN.restore_d_net(self.prev_de_ph,self.prev_W,self.prev_B,conv_L,ac_fn=self.estimator.ac_fn,batch_norm=False)
 
@@ -201,18 +201,7 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
 
         return feed_dict,ii
     
-    '''
-    def current_log_ratio(self):
-        return self.estimator.nu_r - tf.log(tf.reduce_mean(tf.exp(self.estimator.de_r)))
 
-
-    def prev_ratio(self,sess,x,x_de,*args,**kargs):
-        r = tf.div(tf.exp(self.prev_nu_r),tf.reduce_mean(tf.exp(self.prev_de_r)))
-
-        feed_dict={self.estimator.nu_ph:x,self.estimator.de_ph:x_de}
-
-        return sess.run(r,feed_dict)
-    '''
 
 
 class Continual_f_Estimator(Continual_LogLinear_Estimator):
@@ -239,8 +228,7 @@ class Continual_f_Estimator(Continual_LogLinear_Estimator):
             dr = tf.clip_by_value((self.estimator.de_H[-1]+2.)/(self.prev_de_r+2.),-1e30,1e30)
             self.estimator.nu_r = 2.*(nr - 1.)
             self.estimator.de_r = 2.*(dr - 1.)
-            #self.estimator.nu_r = tf.clip_by_value(self.estimator.nu_r,-1e15,1e15)
-            #self.estimator.de_r = tf.clip_by_value(self.estimator.de_r,-1e15,1e15)
+
         else:
             self.estimator.nu_r = self.estimator.nu_H[-1] - self.prev_nu_r 
             self.estimator.de_r = self.estimator.de_H[-1] - self.prev_de_r 

@@ -137,7 +137,7 @@ class Cond_Continual_LogLinear_Estimator(Continual_LogLinear_Estimator):
 
 
     def update_feed_dict(self,nu_samples,de_samples,ii,batch_size,samples_c,*args,**kargs):
-        #print('cond feed dict')
+
         feed_dict = {self.estimator.is_training:is_training} if self.estimator.batch_norm else {}
         ii_bk = ii
 
@@ -155,7 +155,7 @@ class Cond_Continual_LogLinear_Estimator(Continual_LogLinear_Estimator):
 
         c_batch,_,__ = get_next_batch(samples_c,batch_size,ii_bk,repeat=True)
         feed_dict.update({self.estimator.c_ph:c_batch})
-        #print('check label balance',np.sum(c_batch,axis=0))
+
         return feed_dict,ii
 
 
@@ -223,8 +223,7 @@ class Cond_Continual_f_Estimator(Continual_f_Estimator,Cond_Continual_LogLinear_
         elif self.div_type == 'Pearson': 
             nr = tf.clip_by_value((self.estimator.nu_H[-1]+2.)/(self.prev_nu_r+2.),-1e15,1e15)
             dr = tf.clip_by_value((self.estimator.de_H[-1]+2.)/(self.prev_de_r+2.),-1e15,1e15)
-            #nr = (self.estimator.nu_H[-1]+2.)/(self.prev_nu_r+2.)
-            #dr = (self.estimator.de_H[-1]+2.)/(self.prev_de_r+2.)
+
             self.estimator.nu_r = (2.*(nr - 1.))*c_mask + self.estimator.nu_H[-1]*c_mask2
             self.estimator.de_r = (2.*(dr - 1.))*c_mask + self.estimator.de_H[-1]*c_mask2
         else:
