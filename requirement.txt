@@ -1,0 +1,10 @@
+tensorflow==1.15
+scipy
+pandas
+sklearn
+seaborn
+matplotlib
+utils
+base_models
+cl_models
+hsvi

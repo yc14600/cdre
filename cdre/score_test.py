@@ -8,15 +8,13 @@ import gc
 
 import time
 import os
-path = os.getcwd()
 import sys
-sys.path.append(path+'/../../')
 import prd.prd_score as prd
 
-# In[4]:
+
 from utils.fid import FID_Evaluator
 from utils.kid import KID_Evaluator
-from dre.estimators import KL_Loglinear_Estimator
+from estimators import KL_Loglinear_Estimator
 from utils.train_util import one_hot_encoder,shuffle_data,shuffle_batches,condition_mean,load_cifar10,gen_class_split_data
 from utils.test_util import *
 from utils.data_util import *
@@ -222,7 +220,7 @@ elif args.score_type == 'kid':
                                 reg=args.reg,feature_type=args.feature_type,d_net_shape=d_net_shape,ipath=args.warm_start)
 else:
     raise NotImplementedError('Score type not implemented.')
-#tf.global_variables_initializer().run()
+
 if args.extract_feature:
     saver = tf.train.Saver()
     if args.feature_type != 'inception':

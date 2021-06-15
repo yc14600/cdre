@@ -1,20 +1,10 @@
-#!/usr/bin/env python
-# coding: utf-8
 
-# In[1]:
 
 
 import numpy as np
-import tensorflow as tf
-import edward as ed
+import tensorflow as tfd
 import pandas as pd
 import argparse
-
-
-# In[2]:
-
-
-# In[3]:
 
 import time
 import os
@@ -23,20 +13,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-# In[4]:
-
-
 from estimators import LogLinear_Estimator,Continual_LogLinear_Estimator,Continual_f_Estimator
 from utils.model_util import define_dense_layer,LinearRegression
 from utils.test_util import *
 from base_models.mixture_models import MixDiagGaussian
 
-# In[5]:
-
 from scipy.stats import multivariate_normal, norm
 
-
-# In[13]:
 
 
 class generator(object):
@@ -49,7 +32,6 @@ class generator(object):
         return gen_samples(sample_size,self.d_dim,self.mean,self.std)
     
 
-# In[7]:
 parser = argparse.ArgumentParser()
 parser.add_argument('--d_dim', default=2, type=int, help='data dimension')
 parser.add_argument('--dataset', default='gaussian', type=str, help='data set name')
@@ -130,7 +112,6 @@ with open(sub_dir+'configures.txt','w') as f:
 if not args.continual_ratio:
     args.constr = False
 
-# In[8]:
 
 # dist = 'Normal'
 if args.dataset == 'gaussian':
@@ -183,7 +164,6 @@ prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='prev_nu_ph
 prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[None,d_dim],name='prev_de_ph')
 
 
-#sess = ed.get_session()
 sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
 net_shape = [d_dim] + args.hidden_layers + [1]
@@ -437,16 +417,6 @@ if args.vis:
     #                r'$D_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$',r'$\widehat{D}_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$'],fontsize=14)#,bbox_to_anchor=(1., 1.)
     plt.savefig(sub_dir+'KL_compare.pdf')
     plt.close()
-
-# In[46]:
-
-
-#saver.save(sess,'./model_d100_task9')
-
-
-# In[35]:
-
-
 
 
 

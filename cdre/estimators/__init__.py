@@ -1,3 +1,3 @@
-from .estimators import LogLinear_Estimator
+from .estimators import LogLinear_Estimator,KL_Loglinear_Estimator
 from .cl_estimators import Continual_LogLinear_Estimator, Continual_f_Estimator, Continual_f_Estimator
 from .cond_cl_estimators import Cond_Continual_LogLinear_Estimator, Cond_Continual_f_Estimator

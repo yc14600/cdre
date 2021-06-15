@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+
 
 
 import numpy as np
@@ -11,41 +11,25 @@ import pandas as pd
 import argparse
 import gc
 
-
-
-# In[2]:
-
-
-# In[3]:
-
 import time
 import os
-path = os.getcwd()
 import sys
-sys.path.append(path+'/../')
 
-
-# In[4]:
 from base_models.gans import fGAN
 from base_models.classifier import Classifier
 from base_models.vae import VAE, Discriminant_VAE
 from cl_models import Continual_VAE, Continual_DVAE
-from estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
+from .estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
 from utils.train_util import one_hot_encoder,shuffle_data,shuffle_batches,condition_mean,load_cifar10,gen_class_split_data
 from utils.test_util import *
 from utils.data_util import *
 
-#from tcvae.vae_quant import config
-# In[5]:
+
 from tensorflow.examples.tutorials.mnist import input_data
 from scipy.stats import multivariate_normal, norm
 from sklearn.random_projection import GaussianRandomProjection
 
 
-# In[11]:
-
-
-# In[7]:
 parser = argparse.ArgumentParser()
 parser.add_argument('--d_dim', default=2, type=int, help='data dimension')
 parser.add_argument('--T', default=10, type=int, help='number of tasks')
@@ -129,7 +113,6 @@ with open(sub_dir+'configures.txt','w') as f:
 if not args.continual_ratio:
     args.constr = False
 
-# In[8]:
 
 if args.dataset == 'toy_gaussians':
     # mixture Gaussian
@@ -177,13 +160,6 @@ else:
 
     
 
-# In[14]:
-
-
-
-
-# In[15]:
-
 if not args.conv:
     if args.dim_reduction is None:
         x_dim = args.d_dim
@@ -206,13 +182,8 @@ if not args.conv:
         net_shape = [x_dim+args.T] + args.hidden_layers + [1]
 
 
-# In[16]:
-
 
 sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-
-# In[18]:
-
 
 
 if args.festimator:
@@ -225,10 +196,6 @@ else:
                                                prev_de_ph=prev_de_ph,c_ph=c_ph,conv=args.conv,reg=args.reg,cl_constr=args.constr,\
                                                 div_type=args.divergence,lambda_reg=args.lambda_reg,lambda_constr=args.lambda_constr,\
                                                 bayes=args.bayes,local_constr=args.local_constr,c_dim=args.T)
-
-
-
-# In[19]:
 
 
 cl_ratio_model.estimator.config_train(learning_rate=args.learning_rate,decay=decay,clip=args.grad_clip)
@@ -492,15 +459,12 @@ for t in range(args.T):
             transformer = GaussianRandomProjection(n_components=args.z_dim)
         # clear memory    
         gc.collect()
-# In[39]:
 
 
 kl = np.array(kl)
 np.savetxt(sub_dir+'kl.csv', kl, delimiter=',')
 
 
-
-# In[45]:
 if args.vis:
     plt.plot(range(1,args.T),kl[0])
     plt.plot(range(1,args.T),kl[1])
