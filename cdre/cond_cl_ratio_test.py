@@ -19,7 +19,7 @@ from base_models.gans import fGAN
 from base_models.classifier import Classifier
 from base_models.vae import VAE, Discriminant_VAE
 from cl_models import Continual_VAE, Continual_DVAE
-from .estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
+from estimators.cond_cl_estimators import Cond_Continual_LogLinear_Estimator,Cond_Continual_f_Estimator
 from utils.train_util import one_hot_encoder,shuffle_data,shuffle_batches,condition_mean,load_cifar10,gen_class_split_data
 from utils.test_util import *
 from utils.data_util import *
@@ -80,7 +80,6 @@ parser.add_argument('--random_encode',default=True,type=str2bool,help='if True, 
 parser.add_argument('--dvae_lamb',default=1e-10,type=float,help='lambda of discriminant VAE')
 
 args = parser.parse_args()
-#print('check clip',args.grad_clip)
 tf.set_random_seed(args.seed)
 np.random.seed(args.seed)
 
@@ -118,10 +117,9 @@ if args.dataset == 'toy_gaussians':
     # mixture Gaussian
     ori_nu_means = [0. + k * 2. for k in range(args.T)]
     ori_nu_stds = [1.]*args.T
-    #print('check ori params',ori_nu_means,ori_nu_stds)
     nu_means, nu_stds = [ori_nu_means[0]], [ori_nu_stds[0]]
     if args.delta_par == 0. :
-        delta_par =  args.delta_list[0] #np.random.uniform(-0.5,0.5)
+        delta_par =  args.delta_list[0] 
     else:
         delta_par = args.delta_par
     de_means = [nu_means[-1] + delta_par]
@@ -132,9 +130,8 @@ if args.dataset == 'toy_gaussians':
     nu_dists = [nu_dist]
     de_dists = [de_dist]
         
-    #print('check means',nu_means,de_means)
 elif args.dataset in ['mnist','fashion']:
-    ori_data_dir = os.path.join(args.rdpath,args.dataset) #if args.dataset== 'mnist' else '../datasets/fashion-mnist/'
+    ori_data_dir = os.path.join(args.rdpath,args.dataset) 
     data = input_data.read_data_sets(ori_data_dir,one_hot=False) 
     
     ori_X = np.vstack((data.train.images,data.validation.images))
@@ -170,9 +167,6 @@ if not args.conv:
     de_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='de_ph')
     c_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.T],name='c_ph')
 
-    #if args.dataset == 'toy_gaussians' or not args.dim_reduction:
-    #    prev_nu_ph, prev_de_ph = None, None
-    #else:
     prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='prev_nu_ph')
     prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[None,x_dim+args.T],name='prev_de_ph')
 
@@ -213,15 +207,9 @@ elif args.dim_reduction == 'rand_proj':
 elif args.dim_reduction == 'classifier':
     clss = Classifier(x_dim=args.d_dim,y_dim=1,net_shape=[512,args.z_dim],batch_size=200,epochs=100,reg='l2',lambda_reg=0.1)
 
-# In[20]:
-
 
 saver = tf.train.Saver()
-
-# In[28]:
-
 save_name = 'sample_ratios_t'
-
 
 if args.dataset == 'toy_gaussians':
     kl = [[],[],[]]
@@ -281,7 +269,6 @@ for t in range(args.T):
             clX = np.vstack([nu_samples,de_samples])
             clY = np.concatenate([np.ones([nu_samples.shape[0],1]),np.zeros([de_samples.shape[0],1])])
             clX,clY = shuffle_data(clX,clY)
-            #print(clss,clss.train)
             clss.fit(clX,clY)
             if t>0:
                 # encode input for previous estimator
@@ -320,8 +307,8 @@ for t in range(args.T):
 
    
     # save results
-    test_samples = np.vstack([de_samples,t_de_samples])#de_samples#t_de_samples if args.validation else de_samples
-    test_samples_c = np.vstack([samples_c,t_samples_c])#t_samples_c if args.validation else samples_c
+    test_samples = np.vstack([de_samples,t_de_samples])
+    test_samples_c = np.vstack([samples_c,t_samples_c])
 
     if test_samples.shape[0] < batch_size:
         ids = np.random.choice(np.arange(test_samples.shape[0]),size=batch_size)
@@ -357,7 +344,7 @@ for t in range(args.T):
             ids = test_samples_c[:,c]==1
             true_ratio[ids] = -de_dists[c].log_prob(test_samples[ids]) + ori_nu_dists[c].log_prob(test_samples[ids])
             true_step_ratio[ids] = -de_dists[c].log_prob(test_samples[ids]) + nu_dists[c].log_prob(test_samples[ids])
-        #print(true_ratio.shape,estimated_ratio.shape)
+
         if args.save_ratios:
             sample_ratios['true_ratio'] = true_ratio
             sample_ratios['true_step_ratio'] = true_step_ratio
@@ -370,7 +357,7 @@ for t in range(args.T):
             divgergences['true_original_'+div] = true_ds[0]
             divgergences['true_step_'+div] = true_ds[1]
             divgergences['est_original_'+div] = est_ds[0]
-            #divgergences['est_step_'+div] = est_ds[1]
+
             if div == odiv: #compatable for earlier code
                 if 'odiv' == 'rv_KL':
                     kl[0].append(np.mean([Gaussian_KL(de_d,ori_nu_d,args.d_dim) for de_d, ori_nu_d in zip(de_dists,ori_nu_dists)]))
@@ -379,10 +366,8 @@ for t in range(args.T):
                 else:
                     kl[0].append(true_ds[0][:t+1].mean())                    
                     kl[2].append(true_ds[1][:t+1].mean())    
-                    #kl[3].append(est_ds[1][:t+1].mean())  
                            
                 kl[1].append(est_ds[0][:t+1].mean())
-                #print('divs',div, true_ds[0],est_ds[0],true_ds[1])
                 print('avg divs',kl[0][-1],kl[1][-1])
 
     else:
@@ -390,20 +375,16 @@ for t in range(args.T):
             logr = False if args.festimator and args.divergence == 'Pearson'else True
             est_ds = calc_divgenerce(div,[estimated_original_ratio],test_samples_c,logr=logr)
             divgergences['est_original_'+div] = est_ds[0]
-            #divgergences['est_step_'+div] = est_ds[1]
             if div == odiv:
                 kl.append(est_ds[0][:t+1].mean())        
-                #kl[1].append(est_ds[1][:t+1].mean())
                 print('divs',div, est_ds[0])
                 print('avg divs',kl[-1])
     
     divgergences.to_csv(sub_dir+'divs_t'+str(t+1)+'.csv',index=False)
 
     if args.save_ratios:
-        #sample_ratios['estimated_ratio'] = estimated_ratio.sum(axis=1)
         sample_ratios['estimated_original_ratio'] = estimated_original_ratio.sum(axis=1)
         sample_ratios['sample_c'] = np.argmax(test_samples_c,axis=1)
-        #print('check c',test_samples_c[:3],sample_ratios.sample_c[:3])
         sample_ratios.to_csv(sub_dir+save_name+'_t'+str(t+1)+'.csv',index=False)
            
     if t > 0 and args.continual_ratio:
@@ -417,14 +398,12 @@ for t in range(args.T):
                                             
     else: 
         contr = 1.
-    #kl[-1].append(contr)
     print('constrain check',contr)
 
     # visualizations
     if args.vis:
         plt.plot(test_samples[:,0],true_ratio,'.')
         plt.plot(test_samples[:,0],estimated_original_ratio,'.')
-        #plt.plot(test_samples[:,0],estimated_ratio,'.')
 
         plt.xlabel('the first dimension of x',fontsize=15)
         lgd = plt.legend([r'$\log r^*_t$',r'$\log r_t$'],fontsize=15,bbox_to_anchor=(0.9, 1.2),
@@ -451,9 +430,6 @@ for t in range(args.T):
         if args.continual_ratio:       
             cl_ratio_model.update_estimator(sess,t+1,increase_constr=args.increase_constr)
 
-        #if args.dim_reduction=='vae':
-        #    vtrainer.save_params()
-
         if args.dim_reduction=='rand_proj':
             prev_transformer = transformer
             transformer = GaussianRandomProjection(n_components=args.z_dim)
@@ -471,8 +447,6 @@ if args.vis:
     plt.plot(range(1,args.T),kl[2])
     plt.plot(range(1,args.T),kl[3])
     plt.xlabel('t (index of tasks)',fontsize=14)
-    #lgd=plt.legend([r'$D_{KL}(P(x)||P_{\theta_t}(x))$',r'$\widehat{D}_{KL}(P(x)||P_{\theta_t}(x))$',\
-    #                r'$D_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$',r'$\widehat{D}_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$'],fontsize=14)#,bbox_to_anchor=(1., 1.)
     plt.savefig(sub_dir+'KL_compare.pdf')
     plt.close()
 

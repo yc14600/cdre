@@ -243,7 +243,6 @@ if args.model_type in ['single','splitclass','splitsize']:
                                                                                 args.dpath,args.T,ori_X,ori_Y,ori_test_X,\
                                                                                 ori_test_Y,model_type=args.model_type,shuffled=args.shuffled)
 
-    print('check test shape',test_nu_samples.shape,test_de_samples.shape)
     if args.score_type == 'kl':
         score_t = static_kl_div(args,d_dim,nu_samples,de_samples,test_nu_samples,test_de_samples,eval_model)
     elif args.score_type == 'fid':

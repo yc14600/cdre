@@ -11,7 +11,7 @@ This repository contains the source code for paper: [Continual Density Ratio Esi
    
  To test a single pair of original and dynamic distributions, please use *cl_ratio_test.py*. One usage example for the simulated case of 64-D Gaussian distributions in the paper is as below:
 
- `python cl_ratio_test.py --T 10 --result_path ./results/ --d_dim 64 --delta_mean 0.02 --delta_std 0.02 --sample_size 50000 --test_sample_size 10000 --epoch 500 --batch_size 2000 --festimator False --divergence KL --continual_ratio True --learning_rate 0.00001 --lambda_constr 10. increase_constr False --seed 0`
+ `python cl_ratio_test.py --T 10 --result_path ./results/ --d_dim 64 --delta_mean 0.02 --delta_std 0.02 --sample_size 50000 --test_sample_size 10000 --epoch 500 --batch_size 2000 --festimator False --divergence KL --continual_ratio True --learning_rate 0.00001 --lambda_constr 10. --seed 0`
 
 
 #### 2.Multiple pairs of original and dynamic distributions

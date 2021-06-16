@@ -118,7 +118,7 @@ class Continual_LogLinear_Estimator(Continual_Estimator):
         estimator = self.estimator
         if self.div_type == 'KL':
             if self.prev_nu_r is not None:
-                return tf.square(tf.div(tf.reduce_mean(tf.exp(estimator.de_r))*tf.reduce_mean(tf.exp(self.prev_nu_r)),\
+                return tf.square(tf.math.divide(tf.reduce_mean(tf.exp(estimator.de_r))*tf.reduce_mean(tf.exp(self.prev_nu_r)),\
                                 tf.reduce_mean(tf.exp(estimator.de_H[-1]))) - 1.)
             else:
                 return tf.ones(1)

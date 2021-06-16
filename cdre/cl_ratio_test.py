@@ -186,7 +186,7 @@ saver = tf.train.Saver()
 
 save_name = 'sample_ratios_t'
 
-kl = [[],[],[],[],[],[],[],[],[]]
+kl = [[],[],[],[],[]]
 sample_ratios = pd.DataFrame()
 
 for t in range(args.T):
@@ -254,9 +254,9 @@ for t in range(args.T):
             sample_ratios['true_log_ratio'] = true_ratio
             sample_ratios['true_step_log_ratio'] = true_step_ratio
 
-            true_kl = Gaussian_KL(de_dist,ori_nu_dist,args.d_dim) #np.mean(-true_ratio)
+            true_kl = Gaussian_KL(de_dist,ori_nu_dist,args.d_dim) 
             kl[0].append(true_kl)
-            true_step_kl = Gaussian_KL(de_dist, nu_dist,args.d_dim) #np.mean(- true_step_ratio)
+            true_step_kl = Gaussian_KL(de_dist, nu_dist,args.d_dim) 
             kl[2].append(true_step_kl)
             print('true kls', true_kl,true_step_kl)
         
@@ -275,27 +275,14 @@ for t in range(args.T):
             contr = 1.
         kl[4].append(contr)
         print('constrain check',contr)
-        '''
-        true_tv = 0.5*np.mean(np.abs(np.exp(true_ratio)-1.))
-        est_tv = 0.5*np.mean(np.abs(np.exp(estimated_original_ratio)-1.))
-        kl[5].append(true_tv)
-        kl[6].append(est_tv) 
-        print('true TV',true_tv,'estimated TV',est_tv)
-        
-        true_chi = np.mean(np.square(np.exp(true_ratio)-1.))
-        est_chi = np.mean(np.square(np.exp(estimated_original_ratio)-1.))
-        kl[7].append(true_chi)
-        kl[8].append(est_chi) 
-        print('true chi',true_chi,'estimated chi',est_chi)
-        '''
+
 
     elif args.task_type == 'regression':
         if t == 0:
             nu_y = true_f(nu_samples)
             nu_y += 1.5*(0.5 - np.random.uniform(size=nu_y.shape))  # add noise
             ori_nu_samples = nu_samples
-            #print('y shape',nu_y.shape)
-            #x_ph = tf.placeholder(dtype=tf.float32,shape=[None,args.d_dim],name='x_ph')
+
             y_ph = tf.placeholder(dtype=tf.float32,shape=[None,1],name='y_ph')
             w_ph = tf.placeholder(dtype=tf.float32,shape=[None,1],name='w_ph')
             rg_model = LinearRegression(x_ph=nu_ph,y_ph=y_ph,in_dim=args.d_dim,out_dim=1,Bayes=False,logistic=False,w_ph=w_ph)
@@ -326,18 +313,9 @@ for t in range(args.T):
                     label=r'$LR:D_t$')
             plt.legend(loc="best",  scatterpoints=1,fontsize=12)
             plt.ylim(-2, 15)
-            #plt.title('Linear regression examples')
             plt.xlabel('x')
             plt.ylabel('y')
             plt.savefig(sub_dir+'cv_shift_regression.pdf')
-            #W,B = sess.run([rg_model.W,rg_model.B])
-            #print('estimated weights',W,B)
-            #print('true weights',weights,bias)
-            #pred_y = (np.matmul(de_samples, W) + B)*ratio
-
-            #print('estimated y mean', np.mean(pred_y), 'true y mean', np.mean(nu_y), 'current y mean', np.mean(de_y))
-            #print('estimated y std', np.std(pred_y), 'true y std', np.std(nu_y), 'current y std', np.std(de_y))
-            #print('estimated y skewness', np.mean(np.power((pred_y-np.mean(pred_y))/np.std(pred_y),3)), 'true y skewness', np.mean(np.power((nu_y-np.mean(nu_y))/np.std(nu_y),3)))
 
     sample_ratios.to_csv(sub_dir+save_name+'_t'+str(t+1)+'.csv',index=False)
     # visualizations
@@ -397,7 +375,6 @@ for t in range(args.T):
             cl_ratio_model.update_estimator(sess,increase_constr=args.increase_constr,nu_samples=nu_samples,de_samples=de_samples,restart=restart)
 
 # In[39]:
-
 if args.dataset == 'gaussian':
     kl = np.array(kl)
 else:
