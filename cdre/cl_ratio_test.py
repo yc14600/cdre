@@ -2,7 +2,7 @@
 
 
 import numpy as np
-import tensorflow as tfd
+import tensorflow as tf
 import pandas as pd
 import argparse
 
