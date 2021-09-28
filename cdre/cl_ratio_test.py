@@ -149,7 +149,7 @@ if args.dataset == 'gaussian':
         nu_dist,de_dist = get_dists(args.d_dim,nu_mean,nu_std,de_mean,de_std,nu_pi,de_pi)
     ori_nu_dist = nu_dist
 
-elif args.dataset == 'stock':
+elif args.dataset == 'spec' or args.dataset == 'stock':
     dataset = np.load(args.datapath,allow_pickle=True)
              
 
@@ -209,6 +209,11 @@ for t in range(args.T):
         t_nu_samples = dataset[t][-args.test_sample_size:,1:]
         de_samples = dataset[t+1][:args.sample_size,1:]
         t_de_samples = dataset[t+1][-args.test_sample_size:,1:] 
+    elif args.dataset == 'spec':
+        nu_samples = dataset[t][:args.sample_size,:d_dim]
+        t_nu_samples = dataset[t][-args.test_sample_size:,:d_dim]
+        de_samples = dataset[t+1][:args.sample_size,:d_dim]
+        t_de_samples = dataset[t+1][-args.test_sample_size:,:d_dim]
     #else:
     #    nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist,de_sample_size=args.sample_size)
     
