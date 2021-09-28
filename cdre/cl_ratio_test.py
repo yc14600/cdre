@@ -145,7 +145,7 @@ if args.dataset == 'gaussian':
     ori_nu_dist = nu_dist
 
 elif args.dataset == 'stock':
-    dataset = np.load(args.datapath)
+    dataset = np.load(args.datapath,allow_pickle=True)
              
 
 if args.task_type == 'regression':  
@@ -200,10 +200,10 @@ for t in range(args.T):
         nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist)
     elif args.dataset == 'stock':
         # remove the 1st dimenstion which is time stamp
-        nu_samples = dataset[t][:args.sample_size,1:]
-        t_nu_samples = dataset[t][-args.test_sample_size:,1:]
-        de_samples = dataset[t+1][:args.sample_size,1:]
-        t_de_samples = dataset[t+1][-args.test_sample_size:,1:] 
+        nu_samples = dataset[t][:args.sample_size,:args.d_dim]
+        t_nu_samples = dataset[t][-args.test_sample_size:,:args.d_dim]
+        de_samples = dataset[t+1][:args.sample_size,:args.d_dim]
+        t_de_samples = dataset[t+1][-args.test_sample_size:,:args.d_dim] 
     #else:
     #    nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist,de_sample_size=args.sample_size)
     
