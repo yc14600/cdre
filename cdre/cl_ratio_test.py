@@ -150,7 +150,7 @@ if args.dataset == 'gaussian':
     ori_nu_dist = nu_dist
 
 elif args.dataset == 'stock':
-    dataset = np.load(args.datapath)
+    dataset = np.load(args.datapath,allow_pickle=True)
              
 
 if args.task_type == 'regression':  
