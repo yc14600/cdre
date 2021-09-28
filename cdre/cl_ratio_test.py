@@ -57,6 +57,7 @@ parser.add_argument('--lambda_constr', default=1., type=float, help='Lagrange mu
 parser.add_argument('--increase_constr', default=False, type=bool, help='increase Lagrange multiplier of continual constraint when number of tasks increase')
 parser.add_argument('--warm_start', default='', type=str, help='specify the file path to load a trained model for task 0')
 parser.add_argument('--result_path', default='./results/', type=str, help='specify the path for saving results')
+parser.add_argument('--f_name', default='', type=str, help='specify the folder name for saving all result files,if empty, generated automatically with timestamp.')
 parser.add_argument('--seed', default=0, type=int, help='random seed')
 parser.add_argument('--divergence', default='KL', type=str, help='the divergence used to optimize the ratio model, one of [KL, rv_KL, Pearson, Hellinger, Jensen_Shannon]')
 parser.add_argument('--unlimit_samples', default=False, type=str2bool, help='unlimited number of samples')
@@ -100,9 +101,12 @@ else:
 
 if not os.path.exists(path):
     os.makedirs(path)
-
-f_name = 'cl_ratio_test_d'+str(args.d_dim)+'_'+'-'.join(time.ctime().replace(':','').split(' '))+'/'
-sub_dir = path+f_name
+    
+if args.f_name:
+    f_name = args.f_name
+else:
+    f_name = 'cl_ratio_test_d'+str(args.d_dim)+'_'+'-'.join(time.ctime().replace(':','').split(' '))+'/'
+sub_dir = os.path.join(path,f_name)
 os.mkdir(sub_dir)
 
 print(args)
