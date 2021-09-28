@@ -107,7 +107,8 @@ if args.f_name:
 else:
     f_name = 'cl_ratio_test_d'+str(args.d_dim)+'_'+'-'.join(time.ctime().replace(':','').split(' '))+'/'
 sub_dir = os.path.join(path,f_name)
-os.mkdir(sub_dir)
+if not os.path.exists(sub_dir):
+    os.mkdir(sub_dir)
 
 print(args)
 with open(os.path.join(sub_dir,'configures.txt'),'w') as f:
