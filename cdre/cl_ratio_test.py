@@ -101,7 +101,7 @@ else:
 
 if not os.path.exists(path):
     os.makedirs(path)
-    
+
 if args.f_name:
     f_name = args.f_name
 else:
@@ -110,7 +110,7 @@ sub_dir = os.path.join(path,f_name)
 os.mkdir(sub_dir)
 
 print(args)
-with open(sub_dir+'configures.txt','w') as f:
+with open(os.path.join(sub_dir,'configures.txt'),'w') as f:
     f.write(str(args))
 
 if not args.continual_ratio:
@@ -149,7 +149,7 @@ if args.dataset == 'gaussian':
     ori_nu_dist = nu_dist
 
 elif args.dataset == 'stock':
-    dataset = np.load(args.datapath,allow_pickle=True)
+    dataset = np.load(args.datapath)
              
 
 if args.task_type == 'regression':  
@@ -204,10 +204,10 @@ for t in range(args.T):
         nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist)
     elif args.dataset == 'stock':
         # remove the 1st dimenstion which is time stamp
-        nu_samples = dataset[t][:args.sample_size,:args.d_dim]
-        t_nu_samples = dataset[t][-args.test_sample_size:,:args.d_dim]
-        de_samples = dataset[t+1][:args.sample_size,:args.d_dim]
-        t_de_samples = dataset[t+1][-args.test_sample_size:,:args.d_dim] 
+        nu_samples = dataset[t][:args.sample_size,1:]
+        t_nu_samples = dataset[t][-args.test_sample_size:,1:]
+        de_samples = dataset[t+1][:args.sample_size,1:]
+        t_de_samples = dataset[t+1][-args.test_sample_size:,1:] 
     #else:
     #    nu_samples,de_samples = get_samples(args.sample_size,nu_dist,de_dist,de_sample_size=args.sample_size)
     
@@ -237,7 +237,7 @@ for t in range(args.T):
                                                                 batch_size=args.batch_size,epoch=args.epoch,print_e=args.print_e,\
                                                                 nu_dist=None,de_dist=None,early_stop=args.early_stop)
     if args.save_model:
-        saver.save(sess,sub_dir+'model_task'+str(t))
+        saver.save(sess,os.path.join(sub_dir,'model_task'+str(t)))
 
 
     # save results
@@ -319,9 +319,9 @@ for t in range(args.T):
             plt.ylim(-2, 15)
             plt.xlabel('x')
             plt.ylabel('y')
-            plt.savefig(sub_dir+'cv_shift_regression.pdf')
+            plt.savefig(os.path.join(sub_dir,'cv_shift_regression.pdf'))
 
-    sample_ratios.to_csv(sub_dir+save_name+'_t'+str(t+1)+'.csv',index=False)
+    sample_ratios.to_csv(os.path.join(sub_dir,save_name+'_t'+str(t+1)+'.csv'),index=False)
     # visualizations
     if args.vis:
         plt.plot(test_samples[:,0],true_ratio,'.')
@@ -331,7 +331,7 @@ for t in range(args.T):
         plt.xlabel('the first dimension of x',fontsize=15)
         lgd = plt.legend([r'$\log r^*_t$',r'$\log r_t$',r'$\log r_{\theta_t}$'],fontsize=15,bbox_to_anchor=(0.9, 1.2),
             ncol=3)
-        plt.savefig(sub_dir+args.task_type+'_cl_ratio_vis_d'+str(args.d_dim)+'_task'+str(t+1)+'.pdf',bbox_extra_artists=([lgd]), bbox_inches='tight')
+        plt.savefig(os.path.join(sub_dir,args.task_type+'_cl_ratio_vis_d'+str(args.d_dim)+'_task'+str(t+1)+'.pdf'),bbox_extra_artists=([lgd]), bbox_inches='tight')
         plt.close()
 
         if len(args.warm_start) == 0 or t > 0:
@@ -341,7 +341,7 @@ for t in range(args.T):
 
             plt.xlabel('number of epochs',fontsize=12)
             lgd=plt.legend(['training loss','validation loss'],fontsize=12)
-            plt.savefig(sub_dir+'loss_compare_t'+str(t)+'.pdf',bbox_extra_artists=([lgd]), bbox_inches='tight')
+            plt.savefig(os.path.join(sub_dir,'loss_compare_t'+str(t)+'.pdf'),bbox_extra_artists=([lgd]), bbox_inches='tight')
             plt.close()
     
     # update distributions and model
@@ -383,7 +383,7 @@ if args.dataset == 'gaussian':
     kl = np.array(kl)
 else:
     kl = np.vstack([kl[1],kl[3],kl[4]])
-np.savetxt(sub_dir+'divergence_compare.csv', kl, delimiter=',')
+np.savetxt(os.path.join(sub_dir,'divergence_compare.csv'), kl, delimiter=',')
 
 
 
@@ -396,7 +396,7 @@ if args.vis:
     plt.xlabel('t (index of tasks)',fontsize=14)
     #lgd=plt.legend([r'$D_{KL}(P(x)||P_{\theta_t}(x))$',r'$\widehat{D}_{KL}(P(x)||P_{\theta_t}(x))$',\
     #                r'$D_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$',r'$\widehat{D}_{KL}(P_{\theta_{t-1}}(x)||P_{\theta_t}(x))$'],fontsize=14)#,bbox_to_anchor=(1., 1.)
-    plt.savefig(sub_dir+'KL_compare.pdf')
+    plt.savefig(os.path.join(sub_dir,'KL_compare.pdf'))
     plt.close()
 
 
