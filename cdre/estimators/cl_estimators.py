@@ -217,7 +217,7 @@ class Continual_f_Estimator(Continual_LogLinear_Estimator):
                         lambda_reg=lambda_reg,bayes=bayes,constr=local_constr,divergence=div_type)
 
     
-    def update_estimator(self,sess):
+    def update_estimator(self,sess,*args,**kargs):
         self.prev_nu_r,self.prev_de_r = self.save_prev_estimator(sess)
 
         if self.div_type == 'KL':

@@ -8,17 +8,15 @@ import argparse
 
 import time
 import os
-import sys
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-from estimators import LogLinear_Estimator,Continual_LogLinear_Estimator,Continual_f_Estimator
-from utils.model_util import define_dense_layer,LinearRegression
+from estimators import Continual_LogLinear_Estimator,Continual_f_Estimator
+from utils.model_util import LinearRegression
 from utils.test_util import *
-from base_models.mixture_models import MixDiagGaussian
 
-from scipy.stats import multivariate_normal, norm
 
 
 
@@ -74,6 +72,7 @@ parser.add_argument('--festimator', default=False, type=str2bool, help='use f-es
 parser.add_argument('--cuda', default=False, type=str2bool, help='use cuda')
 parser.add_argument('--restart', default=False, type=str2bool, help='restart in the process of cdre by some condition')
 parser.add_argument('--restart_th', default=0.1, type=float, help='restart threshold')
+parser.add_argument('--min_epoch',default=100,type=int,help='minimum number of epochs when using early_stop')
 
 args = parser.parse_args()
 
@@ -181,7 +180,7 @@ if args.festimator:
 else:
     cl_ratio_model = Continual_LogLinear_Estimator(net_shape=net_shape,nu_ph=nu_ph,de_ph=de_ph,prev_nu_ph=prev_nu_ph,\
                                                prev_de_ph=prev_de_ph,reg=args.reg,cl_constr=args.constr,\
-                                                div_type=args.divergence,lambda_reg=args.lambda_reg,\
+                                                div_type=args.divergence,lambda_reg=args.lambda_reg,min_epoch=args.min_epoch,\
                                                 lambda_constr=args.lambda_constr,bayes=args.bayes,local_constr=args.local_constr)
 
 
@@ -237,11 +236,11 @@ for t in range(args.T):
         if args.unlimit_samples:
             losses,tlosses,terrs = cl_ratio_model.estimator.learning(sess,nu_generator,de_generator,t_nu_samples,t_de_samples,\
                                                                 batch_size=args.batch_size,epoch=args.epoch,print_e=args.print_e,\
-                                                                nu_dist=nu_dist,de_dist=de_dist,early_stop=args.early_stop)
+                                                                nu_dist=nu_dist,de_dist=de_dist,early_stop=args.early_stop,min_epoch=args.min_epoch)
         else:
             losses,tlosses,terrs = cl_ratio_model.estimator.learning(sess,nu_samples,de_samples,t_nu_samples,t_de_samples,\
                                                                 batch_size=args.batch_size,epoch=args.epoch,print_e=args.print_e,\
-                                                                nu_dist=None,de_dist=None,early_stop=args.early_stop)
+                                                                nu_dist=None,de_dist=None,early_stop=args.early_stop,min_epoch=args.min_epoch)
     if args.save_model:
         saver.save(sess,os.path.join(sub_dir,'model_task'+str(t)))
 

@@ -38,8 +38,11 @@ parser.add_argument('--dpath', default='./', type=str, help='path of model sampl
 parser.add_argument('--rdpath', default='/home/yu/gits/data/', type=str, help='path of real data samples when dataset is not toy_gaussians')
 parser.add_argument('--delta_par', default=0.01, type=float, help='delta value for changing distribution parameters, \
                                 if 0, it is randomly drawn from a uniform distribution U(0.005,0.025) at each step.')
-parser.add_argument('--scale_shrink', default='True', type=str2bool, help='if True, decrease standard deviation at each step, \
-                                                                    if False, increase it, by the value of delta_par.')
+parser.add_argument('--scale_shrink', default=1., type=float, help='if 1, decrease standard deviation at each step, \
+                                                                    if -1, increase it, by the value of delta_par.\
+                                                                    if 0, fix scale.')
+parser.add_argument('--ori_nu_means',default=[],type=str2flist,help='the list of means of original distributions for toy Gaussian')
+parser.add_argument('--ori_nu_stds',default=[],type=str2flist,help='the list of stds of original distributions for toy Gaussian')
 parser.add_argument('--delta_list', default=[], type=str2flist, help='the list of delta parameter for each task')
 parser.add_argument('--sample_size', default=50000, type=int, help='number of samples')
 parser.add_argument('--test_sample_size', default=10000, type=int, help='number of test samples')
@@ -61,6 +64,7 @@ parser.add_argument('--divergence', default='KL', type=str, help='the divergence
 parser.add_argument('--vis', default=False, type=str2bool, help='enable visualization')
 parser.add_argument('--save_model',default=False, type=str2bool, help='if True, save task0 model')
 parser.add_argument('--save_ratios',default=True, type=str2bool, help='if True, save sample ratios for each task')
+parser.add_argument('--save_samples',default=False, type=str2bool, help='if True, save test sample for each task')
 parser.add_argument('--hidden_layers', default=[256,256], type=str2ilist, help='size of hidden layers, no space between characters')
 parser.add_argument('--bayes', default=False, type=str2bool, help='enable Bayesian prior')
 parser.add_argument('--local_constr', default=0., type=float, help='enable local estimator\'s constraint')
@@ -115,16 +119,21 @@ if not args.continual_ratio:
 
 if args.dataset == 'toy_gaussians':
     # mixture Gaussian
-    ori_nu_means = [0. + k * 2. for k in range(args.T)]
-    ori_nu_stds = [1.]*args.T
-    nu_means, nu_stds = [ori_nu_means[0]], [ori_nu_stds[0]]
+    if args.ori_nu_means is None:
+        ori_nu_means = [0. + k * 2. for k in range(args.T)]
+        ori_nu_stds = [1.]*args.T
+        #nu_means, nu_stds = [ori_nu_means[0]], [ori_nu_stds[0]]
+    else:
+        ori_nu_means = args.ori_nu_means
+        ori_nu_stds = args.ori_nu_stds
+    nu_means, nu_stds = [np.array(ori_nu_means[0])], [np.array(ori_nu_stds[0])]
     if args.delta_par == 0. :
         delta_par =  args.delta_list[0] 
     else:
         delta_par = args.delta_par
-    de_means = [nu_means[-1] + delta_par]
-    de_stds = [nu_stds[-1] - delta_par] if args.scale_shrink else [nu_stds[-1] + delta_par]
-
+    de_means = [nu_means[i] + delta_par for i in range(len(nu_means))]
+    de_stds = [nu_stds[i] - args.scale_shrink*delta_par for i in range(len(nu_stds))] 
+    print('nu means',nu_means,'de means',de_means)
     nu_dist,de_dist = get_dists(args.d_dim,nu_means[0],nu_stds[0],de_means[0],de_stds[0])
     ori_nu_dists = [nu_dist]
     nu_dists = [nu_dist]
@@ -151,6 +160,9 @@ elif args.dataset in ['mnist','fashion']:
 
         prev_nu_ph = tf.placeholder(dtype=tf.float32,shape=[args.batch_size,28,28,args.T+1])
         prev_de_ph = tf.placeholder(dtype=tf.float32,shape=[args.batch_size,28,28,args.T+1])
+
+elif args.dataset == 'spec':
+    dataset = np.load(args.dpath,allow_pickle=True)
 
 else:
     raise NotImplementedError('not implemented test dataset.')
@@ -226,7 +238,7 @@ for t in range(args.T):
 
     if args.dataset == 'toy_gaussians':
         samples_c,nu_samples,de_samples,t_samples_c,t_nu_samples,t_de_samples = gen_toygaussian_task_samples(t,sample_size,test_sample_size,args,nu_dists,de_dists)
-    else:
+    elif args.dataset in ['mnist','fashion']:
         samples_c,nu_samples,de_samples,t_samples_c,t_nu_samples,t_de_samples = gen_task_samples(t,sample_size,test_sample_size,args.dpath,args.T,ori_X,ori_Y,ori_test_X,ori_test_Y,model_type=args.model_type)
         nu_dist, de_dist = None, None
         # dimension reduction before ratio estimation
@@ -283,6 +295,40 @@ for t in range(args.T):
             t_nu_samples = clss.extract_feature(t_nu_samples)
             t_de_samples = clss.extract_feature(t_de_samples)
             clss.save_params()
+    elif args.dataset == 'spec':
+        nu_samples,de_samples,samples_c = [],[],[]
+        if args.validation:
+            t_nu_samples,t_de_samples,t_samples_c = [],[],[]
+        for c in range(t+1):
+            sp_c = (np.ones(sample_size)*c).astype(np.int)
+            sp_c = one_hot_encoder(sp_c,args.T)
+            #print('check c',sp_c[:5])
+            samples_c.append(sp_c)
+            
+            c_nu_samples,c_de_samples = dataset[t][:args.sample_size,:args.d_dim],dataset[t+1][:args.sample_size,:args.d_dim]
+            nu_samples.append(c_nu_samples)
+            de_samples.append(c_de_samples)
+    
+            if args.validation:
+                t_sp_c = (np.ones(test_sample_size)*c).astype(np.int)
+                t_sp_c = one_hot_encoder(t_sp_c,args.T)
+                t_samples_c.append(t_sp_c)
+                tc_nu_samples,tc_de_samples = dataset[t][-args.test_sample_size:,:args.d_dim], dataset[t+1][-args.test_sample_size:,:args.d_dim]
+                t_nu_samples.append(tc_nu_samples)
+                t_de_samples.append(tc_de_samples)
+
+        ids = np.arange(sample_size*(t+1))
+        np.random.shuffle(ids)                 
+        samples_c = np.vstack(samples_c)[ids]
+        nu_samples = np.vstack(nu_samples)[ids]
+        de_samples = np.vstack(de_samples)[ids]
+
+        if args.validation:
+            ids = np.arange(test_sample_size*(t+1))
+            np.random.shuffle(ids)
+            t_samples_c = np.vstack(t_samples_c)[ids]
+            t_nu_samples = np.vstack(t_nu_samples)[ids]
+            t_de_samples = np.vstack(t_de_samples)[ids]
 
             
     tf.global_variables_initializer().run(session=sess)
@@ -307,8 +353,8 @@ for t in range(args.T):
 
    
     # save results
-    test_samples = np.vstack([de_samples,t_de_samples])
-    test_samples_c = np.vstack([samples_c,t_samples_c])
+    test_samples = de_samples#np.vstack([de_samples,t_de_samples])
+    test_samples_c = samples_c#np.vstack([samples_c,t_samples_c])
 
     if test_samples.shape[0] < batch_size:
         ids = np.random.choice(np.arange(test_samples.shape[0]),size=batch_size)
@@ -368,7 +414,7 @@ for t in range(args.T):
                     kl[2].append(true_ds[1][:t+1].mean())    
                            
                 kl[1].append(est_ds[0][:t+1].mean())
-                print('avg divs',kl[0][-1],kl[1][-1])
+                print('avg true divs',kl[0][-1],'avg estimate divs',kl[1][-1])
 
     else:
         for div in div_types:
@@ -386,6 +432,8 @@ for t in range(args.T):
         sample_ratios['estimated_original_ratio'] = estimated_original_ratio.sum(axis=1)
         sample_ratios['sample_c'] = np.argmax(test_samples_c,axis=1)
         sample_ratios.to_csv(sub_dir+save_name+'_t'+str(t+1)+'.csv',index=False)
+    if args.save_samples:
+        np.save(sub_dir+'samples_t'+str(t+1)+'.csv',test_samples,allow_pickle=True)
            
     if t > 0 and args.continual_ratio:
         contr = cl_ratio_model.get_cl_constr()
@@ -425,7 +473,7 @@ for t in range(args.T):
     if t < args.T - 1 :
         if args.dataset == 'toy_gaussians':
             nu_means,nu_stds,nu_dists,de_means,de_stds,de_dists = update_toygaussian_dists(args,t,ori_nu_means,ori_nu_stds,ori_nu_dists,nu_means,nu_stds,de_means,de_stds)
-            
+            print('nu means',nu_means,'de means',de_means)
         # update model loss 
         if args.continual_ratio:       
             cl_ratio_model.update_estimator(sess,t+1,increase_constr=args.increase_constr)
