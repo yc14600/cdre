@@ -1,0 +1,1 @@
+python cl_ratio_test.py --d_dim 64 --T 20 --sample_size 50000 --test_sample_size 10000  --epoch 500 --lambda_constr 1. --delta_mean 0.01 --delta_std -0.01 --result_path ./results/cl_d64_s50000_gan/cdre_t20 --continual_ratio True --learning_rate 0.00002 --festimator True --divergence GAN --seed 0
