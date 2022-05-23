@@ -37,8 +37,9 @@ class Cond_Loglinear_Estimator(LogLinear_Estimator):
         return x_nu,x_de
 
 
-    def log_ratio(self,sess,x_nu,x_de,c,nu_r=None,de_r=None,coef=None,*args,**kargs):
-        x_nu, x_de = self.concat_condition(x_nu,x_de,c)
+    def log_ratio(self,sess,x_nu,x_de,c,nu_r=None,de_r=None,coef=None,concat_c=True,*args,**kargs):
+        if concat_c:
+            x_nu, x_de = self.concat_condition(x_nu,x_de,c)
          
         nu_r = self.nu_r if nu_r is None else nu_r
         de_r = self.de_r if de_r is None else de_r
@@ -81,22 +82,23 @@ class Cond_Loglinear_Estimator(LogLinear_Estimator):
 
     def learning(self,sess,nu_samples,de_samples,samples_c,test_nu_samples=None,test_de_samples=None,\
                 test_samples_c=None,batch_size=64,epoch=50,print_e=1,nu_dist=None,de_dist=None,early_stop=False,\
-                tol=0.,update_feed_dict=None,min_epoch=50,*args,**kargs):
-        
-        nu_samples, de_samples = self.concat_condition(nu_samples,de_samples,samples_c)
-        test_nu_samples, test_de_samples = self.concat_condition(test_nu_samples,test_de_samples,test_samples_c)
+                tol=0.,update_feed_dict=None,min_epoch=50,concat_c=True,*args,**kargs):
+        if concat_c:
+            nu_samples, de_samples = self.concat_condition(nu_samples,de_samples,samples_c)
+            test_nu_samples, test_de_samples = self.concat_condition(test_nu_samples,test_de_samples,test_samples_c)
         losses,tlosses,true_errs = super(Cond_Loglinear_Estimator,self).learning(sess,nu_samples,de_samples,test_nu_samples,test_de_samples,\
                 batch_size,epoch,print_e,None,None,early_stop,tol,update_feed_dict,min_epoch,samples_c,test_samples_c)
 
         return losses,tlosses,true_errs
 
 
-    def update_feed_dict(self,nu_samples,de_samples,ii,batch_size,samples_c,*args,**kargs):
+    def update_feed_dict(self,nu_samples,de_samples,ii,batch_size,samples_c=None,*args,**kargs):
 
         ii_bk = ii
         feed_dict,ii = super(Cond_Loglinear_Estimator,self).update_feed_dict(nu_samples,de_samples,ii,batch_size)
-        c_batch,_,__ = get_next_batch(samples_c,batch_size,ii_bk,repeat=True)
-        feed_dict.update({self.c_ph:c_batch})
+        if samples_c is not None:
+            c_batch,_,__ = get_next_batch(samples_c,batch_size,ii_bk,repeat=True)
+            feed_dict.update({self.c_ph:c_batch})
 
         return feed_dict,ii
 
@@ -106,7 +108,7 @@ class Cond_Loglinear_Estimator(LogLinear_Estimator):
 
     def cond_mean(self,x):
         mask = np.zeros(self.c_dim).astype(np.float32)
-        mask[self.max_c:] = 1.
+        mask[self.max_c:] = 1. # to avoid log0
         tmp = tf.reduce_sum(self.c_ph,axis=0)
         return (tf.reduce_sum(x,axis=0)+mask)/(tmp+mask)
 
@@ -154,8 +156,9 @@ class Cond_f_Estimator(Cond_Loglinear_Estimator,f_Estimator):
         
         return
 
-    def ratio(self,sess,x_nu,x_de,c,nu_r=None,de_r=None,coef=None,*args,**kargs):
-        x_nu, x_de = self.concat_condition(x_nu,x_de,c)
+    def ratio(self,sess,x_nu,x_de,c,nu_r=None,de_r=None,coef=None,concat_c=True,*args,**kargs):
+        if concat_c:
+            x_nu, x_de = self.concat_condition(x_nu,x_de,c)
         
         nu_r = self.nu_r if nu_r is None else nu_r
         nu_r  = nu_r * self.c_ph
@@ -187,8 +190,9 @@ class Cond_f_Estimator(Cond_Loglinear_Estimator,f_Estimator):
 
 
 
-    def log_ratio(self,sess,x_nu,x_de,c,nu_r=None,de_r=None,coef=None,*args,**kargs):
-        x_nu, x_de = self.concat_condition(x_nu,x_de,c)
+    def log_ratio(self,sess,x_nu,x_de,c,nu_r=None,de_r=None,coef=None,concat_c=True,*args,**kargs):
+        if concat_c:
+            x_nu, x_de = self.concat_condition(x_nu,x_de,c)
         
         nu_r = self.nu_r if nu_r is None else nu_r
         nu_r  = nu_r * self.c_ph
